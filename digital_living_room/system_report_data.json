@@ -3,7 +3,7 @@
         "transactions": "2175",
         "balance_snapshots": "156",
         "verified_states": "8",
-        "pwa_staging_flow": "320"
+        "pwa_staging_flow": "322"
     },
     "textile": {
         "projects_implemented": "52",
@@ -65,6 +65,30 @@
                 "utilized_at": "2026-11-04 00:00:00",
                 "disposal_point_name": "Plastic container",
                 "disposal_point_type": "Plastic collection"
+            },
+            {
+                "interval_start": "2026-11-01",
+                "resource_name": "Other waste (kitchen)",
+                "resource_type": "Non-recyclable",
+                "unit": "kg",
+                "device_name": "DEXP BM-10",
+                "uncertainty": 0.05,
+                "quantity": 0.45,
+                "utilized_at": "2026-11-09 00:00:00",
+                "disposal_point_name": "Municipal waste container (MSW)",
+                "disposal_point_type": "MSW landfill"
+            },
+            {
+                "interval_start": "2026-11-01",
+                "resource_name": "Food waste, solid",
+                "resource_type": "Organic",
+                "unit": "kg",
+                "device_name": "DEXP BM-10",
+                "uncertainty": 0.05,
+                "quantity": 3.25,
+                "utilized_at": "2026-11-09 00:00:00",
+                "disposal_point_name": "Municipal waste container (MSW)",
+                "disposal_point_type": "MSW landfill"
             }
         ]
     },
@@ -73,5 +97,5 @@
         "uvr": "UVR-044",
         "date": "2026-11-06"
     },
-    "updated_at": "07.11.2026 11:16:00"
+    "updated_at": "10.11.2026 17:00:03"
 }
