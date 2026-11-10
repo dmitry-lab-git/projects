@@ -4,11 +4,11 @@ from pwa.state.infrastructure import InfrastructureState
 
 def infrastructure_form() -> rx.Component:
     return rx.vstack(
-        # 1. Сводка с фильтром по месяцу и детальными вкладками
+        # 1. Utilization Summary with month filter and tabs
         rx.card(
             rx.vstack(
                 rx.hstack(
-                    rx.heading("Сводка по утилизации", size="4"),
+                    rx.heading("Utilization Summary", size="4"),
                     rx.spacer(),
                     rx.input(
                         type="month",
@@ -21,10 +21,10 @@ def infrastructure_form() -> rx.Component:
                 ),
                 rx.tabs.root(
                     rx.tabs.list(
-                        rx.tabs.trigger("По пунктам", value="by_point"),
-                        rx.tabs.trigger("По ресурсам", value="by_resource"),
+                        rx.tabs.trigger("By Point", value="by_point"),
+                        rx.tabs.trigger("By Resource", value="by_resource"),
                     ),
-                    # Вкладка 1: Разбивка по пунктам утилизации
+                    # Tab 1: Breakdown by disposal points
                     rx.tabs.content(
                         rx.cond(
                             InfrastructureState.monthly_summary.length() > 0,
@@ -32,9 +32,9 @@ def infrastructure_form() -> rx.Component:
                                 rx.table.root(
                                     rx.table.header(
                                         rx.table.row(
-                                            rx.table.column_header_cell("Пункт утилизации"),
-                                            rx.table.column_header_cell("Масса"),
-                                            rx.table.column_header_cell("Количество"),
+                                            rx.table.column_header_cell("Disposal Point"),
+                                            rx.table.column_header_cell("Mass"),
+                                            rx.table.column_header_cell("Count"),
                                         ),
                                     ),
                                     rx.table.body(
@@ -57,11 +57,11 @@ def infrastructure_form() -> rx.Component:
                                 ),
                                 width="100%",
                             ),
-                            rx.text("За выбранный месяц записей пока нет.", color="gray", size="2"),
+                            rx.text("No records found for the selected month.", color="gray", size="2"),
                         ),
                         value="by_point",
                     ),
-                    # Вкладка 2: Разбивка по материалам/ресурсам
+                    # Tab 2: Breakdown by materials/resources
                     rx.tabs.content(
                         rx.cond(
                             InfrastructureState.resource_summary.length() > 0,
@@ -69,9 +69,9 @@ def infrastructure_form() -> rx.Component:
                                 rx.table.root(
                                     rx.table.header(
                                         rx.table.row(
-                                            rx.table.column_header_cell("Ресурс / Материал"),
-                                            rx.table.column_header_cell("Масса"),
-                                            rx.table.column_header_cell("Количество"),
+                                            rx.table.column_header_cell("Resource / Material"),
+                                            rx.table.column_header_cell("Mass"),
+                                            rx.table.column_header_cell("Count"),
                                         ),
                                     ),
                                     rx.table.body(
@@ -94,7 +94,7 @@ def infrastructure_form() -> rx.Component:
                                 ),
                                 width="100%",
                             ),
-                            rx.text("За выбранный месяц записей пока нет.", color="gray", size="2"),
+                            rx.text("No records found for the selected month.", color="gray", size="2"),
                         ),
                         value="by_resource",
                     ),
@@ -105,27 +105,27 @@ def infrastructure_form() -> rx.Component:
             ),
             width="100%",
         ),
-        # 2. Добавить материал
+        # 2. Add Material
         rx.card(
             rx.vstack(
-                rx.heading("Добавить материал", size="4"),
+                rx.heading("Add Material", size="4"),
                 rx.form.root(
                     rx.vstack(
                         rx.input(
-                            placeholder="Название материала",
+                            placeholder="Material Name",
                             name="material_name",
                             required=True,
                         ),
                         rx.input(
-                            placeholder="Тип ресурса", name="resource_type"
+                            placeholder="Resource Type", name="resource_type"
                         ),
                         rx.input(
-                            placeholder="Единица измерения", name="default_unit"
+                            placeholder="Unit of Measure", name="default_unit"
                         ),
                         rx.input(
-                            placeholder="Тип тары", name="container_type"
+                            placeholder="Container Type", name="container_type"
                         ),
-                        rx.button("Сохранить ресурс", type="submit"),
+                        rx.button("Save Resource", type="submit"),
                     ),
                     on_submit=InfrastructureState.add_resource,
                     reset_on_submit=True,
@@ -134,42 +134,42 @@ def infrastructure_form() -> rx.Component:
             ),
             width="100%",
         ),
-        # 3. Ввод расхода
+        # 3. Log Consumption
         rx.card(
             rx.vstack(
-                rx.heading("Ввод расхода", size="4"),
+                rx.heading("Log Consumption", size="4"),
                 rx.form.root(
                     rx.vstack(
                         rx.select(
                             InfrastructureState.resource_names,
                             value=InfrastructureState.selected_resource_name,
                             on_change=InfrastructureState.set_selected_resource_name,
-                            placeholder="Выберите ресурс...",
+                            placeholder="Select resource...",
                             width="100%",
                         ),
                         rx.select(
                             InfrastructureState.device_names,
                             value=InfrastructureState.selected_device_name,
                             on_change=InfrastructureState.set_selected_device_name,
-                            placeholder="Выберите устройство...",
+                            placeholder="Select device...",
                             width="100%",
                         ),
                         rx.select(
                             InfrastructureState.disposition_point_names,
                             value=InfrastructureState.selected_disposal_point_name,
                             on_change=InfrastructureState.set_selected_disposal_point_name,
-                            placeholder="Выберите пункт утилизации...",
+                            placeholder="Select disposal point...",
                             width="100%",
                         ),
                         rx.select(
                             ["gross", "net"],
                             name="weighing_type",
                             default_value="gross",
-                            placeholder="Тип взвешивания...",
+                            placeholder="Weighing type...",
                             width="100%",
                         ),
                         rx.input(
-                            placeholder="Количество",
+                            placeholder="Quantity",
                             name="quantity",
                             type="number",
                             step="0.001",
@@ -182,7 +182,7 @@ def infrastructure_form() -> rx.Component:
                                     on_change=InfrastructureState.set_use_current_date,
                                 ),
                                 rx.text(
-                                    "Использовать текущую дату",
+                                    "Use current date",
                                     size="2",
                                     white_space="nowrap",
                                 ),
@@ -205,7 +205,7 @@ def infrastructure_form() -> rx.Component:
                             align="start",
                             spacing="2",
                         ),
-                        rx.button("Записать расход", type="submit"),
+                        rx.button("Log Consumption", type="submit"),
                     ),
                     on_submit=InfrastructureState.add_disposition,
                 ),
@@ -214,16 +214,16 @@ def infrastructure_form() -> rx.Component:
             width="100%",
         ),
         rx.divider(margin_y="1em"),
-        rx.heading("Последние 20 транзакций", size="4"),
+        rx.heading("Latest 20 Transactions", size="4"),
         rx.scroll_area(
             rx.table.root(
                 rx.table.header(
                     rx.table.row(
-                        rx.table.column_header_cell("Дата"),
-                        rx.table.column_header_cell("Ресурс"),
-                        rx.table.column_header_cell("Количество"),
-                        rx.table.column_header_cell("Устройство"),
-                        rx.table.column_header_cell("Пункт утилизации"),
+                        rx.table.column_header_cell("Date"),
+                        rx.table.column_header_cell("Resource"),
+                        rx.table.column_header_cell("Quantity"),
+                        rx.table.column_header_cell("Device"),
+                        rx.table.column_header_cell("Disposal Point"),
                     ),
                 ),
                 rx.table.body(

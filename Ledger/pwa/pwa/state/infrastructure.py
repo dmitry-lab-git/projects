@@ -189,9 +189,9 @@ class InfrastructureState(rx.State):
             
             self.monthly_summary = [
                 {
-                    "disposition_point_name": f"{row.point_name} I {row.point_type}" if row.point_type else (row.point_name or "Без пункта"),
-                    "total_mass": f"{float(row.total_mass or 0):.3f} кг",
-                    "record_count": f"{row.record_count} шт."
+                    "disposition_point_name": f"{row.point_name} I {row.point_type}" if row.point_type else (row.point_name or "Without point"),
+                    "total_mass": f"{float(row.total_mass or 0):.3f} kg",
+                    "record_count": f"{row.record_count} pcs"
                 }
                 for row in results_points
             ]
@@ -199,7 +199,7 @@ class InfrastructureState(rx.State):
             # 2. Сводка по ресурсам (material_name)
             query_resources = text("""
                 SELECT 
-                    COALESCE(rc.material_name, 'Неуказанный ресурс') AS resource_name,
+                    COALESCE(rc.material_name, 'Unspecified resource') AS resource_name,
                     rc.resource_type,
                     SUM(md.quantity) AS total_mass,
                     COUNT(md.id) AS record_count
@@ -214,8 +214,8 @@ class InfrastructureState(rx.State):
             self.resource_summary = [
                 {
                     "resource_name": f"{row.resource_name} ({row.resource_type})" if row.resource_type else row.resource_name,
-                    "total_mass": f"{float(row.total_mass or 0):.3f} кг",
-                    "record_count": f"{row.record_count} шт."
+                    "total_mass": f"{float(row.total_mass or 0):.3f} kg",
+                    "record_count": f"{row.record_count} pcs"
                 }
                 for row in results_resources
             ]
@@ -233,7 +233,7 @@ class InfrastructureState(rx.State):
         point = next((p for p in self.disposition_points if p.get("display_name") == point_name or p.get("name") == point_name), None)
 
         if not res:
-            return rx.window_alert("Ошибка: Ресурс не выбран!")
+            return rx.window_alert("Error: Resource not selected!")
 
         # Логика даты с учетом галочки "Использовать текущую дату"
         if self.use_current_date:
@@ -258,4 +258,4 @@ class InfrastructureState(rx.State):
         # Обновляем таблицу истории
         self.load_disposition_history()
         
-        return rx.window_alert("Запись добавлена!")
+        return rx.window_alert("Record added successfully!")

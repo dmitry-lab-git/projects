@@ -1,4 +1,3 @@
-cat > ~/Projects/Ledger/pwa/src/services/cron/jobs/archive_untouchable.sh <<'SH'
 #!/bin/bash
 set -e
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -23,7 +22,3 @@ done < <(find "$MAIN_BACKUP_DIR" -maxdepth 1 -type f -name "*_Mon.*")
 
 echo "Архивация успешно выполнена: $(date)" > "$FLAG_FILE"
 echo "Квитанция создана: $FLAG_FILE, перенесено: $FILES_MOVED"
-SH
-chmod +x ~/Projects/Ledger/pwa/src/services/cron/jobs/archive_untouchable.sh
-echo "Патч применен:"
-cat ~/Projects/Ledger/pwa/src/services/cron/jobs/archive_untouchable.sh
