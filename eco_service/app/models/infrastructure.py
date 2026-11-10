@@ -15,13 +15,13 @@ class BagRead(BaseModel):
 
 
 class BagAllocationPayload(BaseModel):
-    """Схема одной фракции внутри JSONB payload при BagSorted"""
+    """Schema of a single fraction within the JSONB payload during BagSorted"""
     category_id: UUID
-    weight_kg: float = Field(..., ge=0.0, description="Вес фракции в кг")
+    weight_kg: float = Field(..., ge=0.0, description="Fraction weight in kilograms")
 
 
 class BagEventPayload(BaseModel):
-    """Свободный или структурированный контекст события"""
+    """Flexible or structured context payload of the event"""
     weight_kg: Optional[float] = None
     allocations: Optional[List[BagAllocationPayload]] = None
     rejection_reason: Optional[str] = None

@@ -2,11 +2,11 @@ from pathlib import Path
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-# Точный путь к .env внутри WSL
+# Absolute path to the .env file within the WSL environment
 ENV_PATH = Path("/home/fujitsu-u745/Projects/secure_folder/eco_service/.env")
 
 class AppSettings(BaseSettings):
-    # Единая строка подключения к базе данных (как в вашем рабочем примере)
+    # Unified database connection string (as in your working configuration)
     database_url: str = Field(..., alias="DATABASE_URL")
     
     # Context Session Settings
@@ -22,5 +22,6 @@ class AppSettings(BaseSettings):
         extra="ignore"
     )
 
-# Инициализация конфигурации
+# Configuration initialization
 settings = AppSettings()
+

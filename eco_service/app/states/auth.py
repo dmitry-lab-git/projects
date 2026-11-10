@@ -3,7 +3,7 @@ from typing import Dict, Any
 from .base import AppState
 
 class AuthState(AppState):
-    """Стейт аутентификации и ролевой модели (RBAC)."""
+    """Authentication and Role-Based Access Control (RBAC) state."""
     current_user: Dict[str, Any] = {
         "operator_id": "fa4e5b22-8356-42d4-bb9e-4e4bf7e9b0e1",
         "username": "palani_mgr",
@@ -25,7 +25,7 @@ class AuthState(AppState):
         return self.access_level >= 2
 
     def switch_role(self, role: str, level: int, name: str):
-        """Динамическое переключение роли для тестов интерфейса."""
+        """Dynamically switch user roles for UI testing purposes."""
         self.current_user["role"] = role
         self.current_user["access_level"] = level
         self.current_user["full_name"] = name

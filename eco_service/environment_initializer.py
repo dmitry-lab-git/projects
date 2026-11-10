@@ -21,13 +21,29 @@ EVENT_TYPES_MAP = {
     "SORTED": uuid.UUID("da2a13f5-62bb-4c22-b5e1-8f4b7a2c3d10")
 }
 
+# Маппинг детальных фракций домохозяйств на типы мешков в БД (защита от пропусков continue)
+HOUSEHOLD_BAG_TYPE_FALLBACK = {
+    "ORGANIC": "ORGANIC",
+    "NON_RECYCLABLE_KITCHEN": "DIRTY_MIXED",
+    "SANITARY": "DIRTY_MIXED",
+    "PLASTIC": "CLEAN_DRY",
+    "CARDBOARD": "CLEAN_DRY",
+    "PAPER": "CLEAN_DRY",
+    "GLASS_UNBROKEN": "CLEAN_DRY",
+    "GLASS_BROKEN": "CLEAN_DRY",
+    "TETRAPACK": "CLEAN_DRY",
+    "METAL": "CLEAN_DRY",
+    "THERMOCOL": "CLEAN_DRY",
+    "TEXTILE": "CLEAN_DRY"
+}
+
 async def run_global_initialization():
     print("Opening connection pool for streamlined simulation...", flush=True)
     pool = await create_database_pool()
     
     async with pool.acquire() as conn:
         # 1. Очищаем только транзакционные таблицы перед симуляцией
-        print(" [1/3] Truncating transaction logs (bags & events)...", flush=True)
+        print("🔥 [1/3] Truncating transaction logs (bags & events)...", flush=True)
         await conn.execute("TRUNCATE TABLE infrastructure.bag_events CASCADE;")
         await conn.execute("TRUNCATE TABLE infrastructure.bags CASCADE;")
 
@@ -39,14 +55,12 @@ async def run_global_initialization():
         if not yard_ids:
             raise ValueError("Error: dicts.yards is empty! Please seed yards before running simulation.")
         
-        # Домохозяйства: проецируем user_id как resident_id для infrastructure.bags
         households_db = await conn.fetch("SELECT user_id AS resident_id, yard_id FROM dicts.households;")
         organizations_db = await conn.fetch("SELECT organization_id, business_type FROM dicts.organizations WHERE is_active = TRUE;")
         
         bag_types_db = await conn.fetch("SELECT type_id, code FROM dicts.bag_types;")
         bag_type_map = {row["code"]: row["type_id"] for row in bag_types_db}
 
-        # Получаем пулы активных операторов на основе ролей из model_config
         operators_db = await conn.fetch("SELECT operator_id, role FROM dicts.operators WHERE is_active = TRUE;")
         collector_uuids = [op["operator_id"] for op in operators_db if op["role"] == SIMULATION_OPERATOR_ROLES["COLLECTOR"]]
         sorter_uuids = [op["operator_id"] for op in operators_db if op["role"] == SIMULATION_OPERATOR_ROLES["SORTER"]]
@@ -68,32 +82,33 @@ async def run_global_initialization():
                 # --- А. Генерация от домохозяйств ---
                 for hh in households_db:
                     if random.random() < HOUSEHOLD_DAILY_ACTIVITY_PROBABILITY:
-                        total_bags += 1
-                        bag_id = uuid.uuid4()
-                        t_sub = current_day + timedelta(minutes=random.randint(60, 800))
-                        
                         waste_types = list(HOUSEHOLD_WASTE_PROFILE.keys())
                         weights = [HOUSEHOLD_WASTE_PROFILE[wt]["weight"] for wt in waste_types]
                         chosen_wt = random.choices(waste_types, weights=weights)[0]
                         
                         profile = HOUSEHOLD_WASTE_PROFILE[chosen_wt]
-                        b_type_uid = bag_type_map.get(chosen_wt)
-                        weight = round(random.uniform(*profile["weight_range"]), 3)
+                        
+                        b_type_code = chosen_wt if chosen_wt in bag_type_map else HOUSEHOLD_BAG_TYPE_FALLBACK.get(chosen_wt)
+                        b_type_uid = bag_type_map.get(b_type_code)
                         
                         if not b_type_uid:
-                            continue
+                            b_type_uid = list(bag_type_map.values())[0] if bag_type_map else None
+                            if not b_type_uid:
+                                continue
 
-                        # Динамический выбор исполнителей из пулов справочника
+                        total_bags += 1
+                        bag_id = uuid.uuid4()
+                        t_sub = current_day + timedelta(minutes=random.randint(60, 800))
+                        weight = round(random.uniform(*profile["weight_range"]), 3)
+
                         current_collector = random.choice(collector_uuids)
                         current_sorter = random.choice(sorter_uuids)
 
-                        # Таблица 1: Создание мешка
                         await conn.execute(
                             "INSERT INTO infrastructure.bags (bag_id, resident_id, yard_id, type_id, created_at) VALUES ($1, $2, $3, $4, $5);",
                             bag_id, hh["resident_id"], hh["yard_id"], b_type_uid, t_sub
                         )
                         
-                        # Таблица 2: Цепочка событий жизненного цикла
                         events = [
                             (EVENT_TYPES_MAP["SUBMITTED"], None, t_sub, '{"source":"household_pwa"}'),
                             (EVENT_TYPES_MAP["ARRIVED"], current_collector, t_sub + timedelta(minutes=120), '{"logistics":"rickshaw"}'),
@@ -114,12 +129,16 @@ async def run_global_initialization():
                     
                     for stream in waste_streams:
                         if random.random() < stream["daily_probability"]:
+                            b_type_uid = bag_type_map.get(stream["bag_type_code"], bag_type_map.get("CLEAN_DRY"))
+                            if not b_type_uid and bag_type_map:
+                                b_type_uid = list(bag_type_map.values())[0]
+                            if not b_type_uid:
+                                continue
+
                             total_bags += 1
                             bag_id = uuid.uuid4()
                             t_sub = current_day + timedelta(hours=random.randint(8, 16))
                             random_yard_id = random.choice(yard_ids)
-                            
-                            b_type_uid = bag_type_map.get(stream["bag_type_code"], bag_type_map.get("CLEAN_DRY"))
                             weight = round(random.uniform(*stream["weight_range"]), 3)
                             
                             org_resident_id = households_db[0]["resident_id"] if households_db else uuid.uuid4()
@@ -127,13 +146,11 @@ async def run_global_initialization():
                             current_collector = random.choice(collector_uuids)
                             current_sorter = random.choice(sorter_uuids)
 
-                            # Таблица 1: Создание мешка
                             await conn.execute(
                                 "INSERT INTO infrastructure.bags (bag_id, resident_id, yard_id, type_id, created_at) VALUES ($1, $2, $3, $4, $5);",
                                 bag_id, org_resident_id, random_yard_id, b_type_uid, t_sub
                             )
                             
-                            # Таблица 2: Цепочка событий
                             events = [
                                 (EVENT_TYPES_MAP["SUBMITTED"], None, t_sub, '{"source":"organization_portal"}'),
                                 (EVENT_TYPES_MAP["ARRIVED"], current_collector, t_sub + timedelta(minutes=90), '{"logistics":"truck"}'),
@@ -145,12 +162,15 @@ async def run_global_initialization():
                                 await conn.execute(
                                     "INSERT INTO infrastructure.bag_events (bag_id, event_type_id, operator_id, payload, occurred_at) VALUES ($1, $2, $3, $4::jsonb, $5);",
                                     bag_id, ev_type_id, op_id, payload, ev_time
-                            )
+                                )
 
+            # СТРОГО 12 ПРОБЕЛОВ (на уровне с async with conn.transaction():)
             current_day += timedelta(days=1)
 
-        print(f"📊 [Simulation Complete] Successfully generated {total_bags} transactional records across `bags` and `bag_events`.", flush=True)
+        # СТРОГО 8 ПРОБЕЛОВ (на уровне с while, после его завершения)
+        print(f"📊 [Simulation Complete] Successfully generated {total_bags} transactional records.", flush=True)
     
+    # СТРОГО 4 ПРОБЕЛА (на уровне тела функции)
     await pool.close()
 
 if __name__ == "__main__":
