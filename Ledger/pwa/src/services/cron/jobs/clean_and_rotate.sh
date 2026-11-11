@@ -1,4 +1,3 @@
-cat > ~/Projects/Ledger/pwa/src/services/cron/jobs/clean_and_rotate.sh <<'SH'
 #!/bin/bash
 set -e
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -30,5 +29,3 @@ rm -f "$FLAG_FILE"
 powershell.exe -Command "(New-Object -ComObject Wscript.Shell).Popup('Обслуживание хранилища завершено. Старые ежедневные копии удалены.', 0, 'Хранилище Бэкапов', 64)" > /dev/null 2>&1 || true
 
 echo "Очистка завершена успешно."
-SH
-chmod +x ~/Projects/Ledger/pwa/src/services/cron/jobs/clean_and_rotate.sh
