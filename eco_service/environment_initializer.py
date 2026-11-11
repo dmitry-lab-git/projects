@@ -13,7 +13,7 @@ from model_config import (
     SIMULATION_OPERATOR_ROLES
 )
 
-# Фиксированные UUID системных событий жизненного цикла мешка
+# Fixed UUIDs for system events in the bag lifecycle
 EVENT_TYPES_MAP = {
     "SUBMITTED": uuid.UUID("fa4e5b22-8356-42d4-bb9e-4e4bf7e9b0e1"),
     "ARRIVED": uuid.UUID("3c2b81fa-9d1a-4d24-82a1-5fe11c784ab2"),
@@ -21,7 +21,7 @@ EVENT_TYPES_MAP = {
     "SORTED": uuid.UUID("da2a13f5-62bb-4c22-b5e1-8f4b7a2c3d10")
 }
 
-# Маппинг детальных фракций домохозяйств на типы мешков в БД (защита от пропусков continue)
+# Mapping detailed household fractions to database bag types (fallback protection)
 HOUSEHOLD_BAG_TYPE_FALLBACK = {
     "ORGANIC": "ORGANIC",
     "NON_RECYCLABLE_KITCHEN": "DIRTY_MIXED",
@@ -42,12 +42,12 @@ async def run_global_initialization():
     pool = await create_database_pool()
     
     async with pool.acquire() as conn:
-        # 1. Очищаем только транзакционные таблицы перед симуляцией
+        # 1. Truncate only transactional tables before starting simulation
         print("🔥 [1/3] Truncating transaction logs (bags & events)...", flush=True)
         await conn.execute("TRUNCATE TABLE infrastructure.bag_events CASCADE;")
         await conn.execute("TRUNCATE TABLE infrastructure.bags CASCADE;")
 
-        # 2. Вытягиваем необходимые сущности из справочников БД
+        # 2. Fetch necessary entities from database references
         print("📥 [2/3] Fetching reference entities from database...", flush=True)
         
         yards_db = await conn.fetch("SELECT yard_id FROM dicts.yards WHERE is_active = TRUE;")
@@ -70,7 +70,7 @@ async def run_global_initialization():
         if not sorter_uuids:
             sorter_uuids = [uuid.uuid4()]
 
-        # 3. Запуск симуляции по временной шкале
+        # 3. Timeline-based simulation launch
         print("🌊 [3/3] Replaying timeline based on model_config parameters...", flush=True)
         current_day = SIMULATION_START_DATE
         total_bags = 0
@@ -79,7 +79,7 @@ async def run_global_initialization():
             print(f"⏳ Simulating date: {current_day.strftime('%Y-%m-%d')} (Total bags so far: {total_bags})", flush=True)
             
             async with conn.transaction():
-                # --- А. Генерация от домохозяйств ---
+                # --- A. Household Generation ---
                 for hh in households_db:
                     if random.random() < HOUSEHOLD_DAILY_ACTIVITY_PROBABILITY:
                         waste_types = list(HOUSEHOLD_WASTE_PROFILE.keys())
@@ -122,7 +122,7 @@ async def run_global_initialization():
                                 bag_id, ev_type_id, op_id, payload, ev_time
                             )
 
-                # --- Б. Генерация от организаций ---
+                # --- B. Organization Generation ---
                 for org in organizations_db:
                     b_type_code = org["business_type"]
                     waste_streams = ORGANIZATION_WASTE_PROFILES.get(b_type_code, ORGANIZATION_WASTE_PROFILES["OTHER"])
@@ -164,13 +164,10 @@ async def run_global_initialization():
                                     bag_id, ev_type_id, op_id, payload, ev_time
                                 )
 
-            # СТРОГО 12 ПРОБЕЛОВ (на уровне с async with conn.transaction():)
             current_day += timedelta(days=1)
 
-        # СТРОГО 8 ПРОБЕЛОВ (на уровне с while, после его завершения)
         print(f"📊 [Simulation Complete] Successfully generated {total_bags} transactional records.", flush=True)
     
-    # СТРОГО 4 ПРОБЕЛА (на уровне тела функции)
     await pool.close()
 
 if __name__ == "__main__":
