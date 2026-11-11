@@ -38,32 +38,60 @@ The database is designed around structured operational records and event history
 eco_service/
 │
 ├── ddl/
-│   ├── full_schema_auroville_eco_service.sql
+│   ├── full_schema_auroville_eco_service.sql  # Consolidated schema (single deployment script)
 │   ├── 00_extensions_postgis.sql
 │   ├── 01_dicts.sql
 │   ├── 02_infrastructure.sql
 │   ├── 03_security.sql
-│   └── 04_analytics.sql
+│   ├── 04_analytics.sql
+│   └── readme.txt
+│
+├── app/                                   # Reflex application source (PWA)
+│   ├── app.py
+│   ├── dashboard/
+│   │   ├── pages/
+│   │   │   ├── index.py                   # Main role navigation portal
+│   │   │   ├── collector/                 # Field collector interface
+│   │   │   ├── sorter/                    # Hub sorter interface
+│   │   │   ├── manager/                   # Manager dashboards & KPIs
+│   │   │   └── routes.py
+│   │   ├── components/
+│   │   │   ├── charts.py                  # Collection trends & analytics charts
+│   │   │   ├── kpi_cards.py
+│   │   │   ├── analytics_tables.py
+│   │   │   └── universal_form.py / operator_form.py
+│   │   └── role_config.py
+│   ├── database/
+│   │   ├── connection.py                  # asyncpg connection
+│   │   └── config.py
+│   ├── models/
+│   │   ├── dicts.py / infrastructure.py / analytics.py
+│   ├── states/
+│   │   ├── auth.py / analytics.py / base.py
+│   └── assets/
+│       └── icon.svg
 │
 ├── docs/
-│   └── DBDD.md
+│   ├── Auroville_Eco_Service_ERP_Development_Transfer_Proposal.pdf
+│   ├── Auroville_Eco_Service_ERP_Governance_Framework.pdf
+│   ├── UX_UI_&_System_Architecture_Overview.pdf
+│   ├── database_design_document.md
+│   ├── open_source_architecture_integration_proposal.md
+│   ├── project_governance_and_decisions.md
+│   └── screenshots/
+│       ├── 1_desktop_main_screen.png
+│       ├── 2-5_desktop_manager_screens.png
+│       ├── 6_mobile_sorter.jpg / 7_mobile_collector.jpg
+│       └── 8-9_mobile_manager_*.jpg
 │
-├── app/                       # Reflex application source (PWA)
-├── .web/                      # Generated frontend artifacts
-├── .states/                   # Local Reflex state data
-│
-├── BP.md                      # Business process description
-├── config.py                  # Application configuration
-├── model_config.py            # Pydantic models
-├── database.py                # asyncpg database connection
-├── security_utils.py          # Password hashing utilities
-├── set_operator_password.py   # Operator password setup
-├── environment_initializer.py # Synthetic test data generator
-├── rxconfig.py                # Reflex configuration
-├── requirements.txt           # Python dependencies
-│
-└── venv/                      # Local virtual environment (not committed)
-```
+├── LICENSE                                # MIT License (Copyright © 2026 Dmitry Lab)
+├── config.py / model_config.py            # Application & Pydantic models
+├── database.py / security_utils.py        # DB connection & password hashing
+├── environment_initializer.py              # Synthetic test data generator (DESTRUCTIVE - dev only)
+├── set_operator_password.py
+├── rxconfig.py / requirements.txt
+├── AGENTS.md / CLAUDE.md
+└── readme.md
 
 The `ddl/` directory contains the database definitions. The consolidated SQL file provides the complete schema in one script.
 
