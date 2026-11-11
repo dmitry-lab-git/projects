@@ -11,6 +11,8 @@ ALLOWED_DIRS = [
     (BASE_DIR / "data").resolve(),
     (BASE_DIR / "uploads").resolve(),
     Path("/home/fujitsu-u745/Projects/core/photo_processor/ai_input"),
+    Path("/mnt/c/Personal/Projects/Ingress"),
+    Path("/mnt/c/Personal/Projects/Archive_Buffer"),
     (BASE_DIR / "Ledger").resolve()  # Добавляем путь к папке Ledger
 ]
 
