@@ -1,42 +1,73 @@
 ================================================================================
-ИНСТРУКЦИЯ ПО ИСПОЛЬЗОВАНИЮ ПУТЕВОДИТЕЛЯ (PROMPTS GUIDE)
+          AUROVILLE ECO-SERVICE ERP — AI PROMPTS GUIDE & USER MANUAL
 ================================================================================
 
-1. УПРАВЛЕНЧЕСКИЙ КОНТУР (ИНСТРУКЦИЯ ДЛЯ СТЕЙКХОЛДЕРОВ)
+1. OVERVIEW & MANAGEMENT CONTROLS
 --------------------------------------------------------------------------------
-Для получения оперативных консультаций, разъяснений бизнес-логики и технических 
-деталей системы любой заинтересованный участник (руководитель, менеджер, 
-полевой оператор или резидент) может воспользоваться встроенным ИИ-гидом.
+This guide serves as an operational tool to extract technical architecture details, 
+business logic clarifications, and deployment roadmaps from the ERP Prototype 
+knowledge base. 
 
-Порядок действий:
-1. Загрузите файлы документации в любой удобный ИИ-чат (например, 
-   `ERP Eco Service business plan integration process.txt` и `prompts_guide.txt`).
-2. Скопируйте и отправьте любой из 10 готовых промптов-вопросов из путеводителя 
-   для получения исчерпывающего ответа с учетом всей архитектуры ERP.
+Any project participant (Manager, Hub Sorter, Field Collector, or Resident) can 
+use these pre-formatted prompts to consult the AI Guide on the system's core 
+design patterns, database structures, and scaling principles.
 
-2. ТЕХНИЧЕСКИЙ КОНТУР И СПИСОК ВОПРОСОВ (ГОТОВЫЙ ВВОДДЛЯ ИИ)
+Step-by-Step Execution:
+1. Upload the system documentation files (e.g., the open-source transfer proposal 
+   and the UX/UI system architecture overview) into your AI chat interface.
+2. Copy and send any of the 10 thematic prompts below to analyze or expand upon 
+   the current state of development.
+
+2. TECHNICAL CONTROLS & COMPREHENSIVE AI PROMPTS
 --------------------------------------------------------------------------------
-Вы можете скопировать любой из этих вопросов и отправить в чат вместе с файлами:
+The following 10 prompts are divided by functional domain and structured to 
+reveal established system logic as well as guide future technical specifications:
 
-* Промпт 1: «Объясни общую архитектуру и цели ERP-системы «Auroville Eco-Service», 
-  а также роль четырех изолированных схем базы данных (dicts, infrastructure, 
-  security, analytics)».
-* Промпт 2: «Как устроен материальный учет отходов в системе? Расскажи про связь 
-  между таблицами bags, логом событий bag_events и витриной учета».
-* Промпт 3: «Какова логика пилотного проекта на 2 месяца для 10 ключевых объектов 
-  (рестораны, офисы, фабрики, гестхаусы) и как работает симулятор потоков?».
-* Промпт 4: «Опиши четырехуровневую модель доступа (RBAC) в системе: от резидентов 
-  и полевых сборщиков до менеджеров и CEO».
-* Промпт 5: «Какие существуют варианты полевой маркировки отходов (от ламинированных 
-  табличек до QR-меток и смарт-контейнеров) и каков их выбор по уровням сложности?».
-* Промпт 6: «Как устроена экономическая модель проекта (CAPEX и OPEX) и в чем заключаются 
-  преимущества того, что разработку и техподдержку берет на себя Dmitry Lab?».
-* Промпт 7: «Каковы технические требования к смартфонам операторов для сканирования 
-  меток (минимальная версия ОС, характеристики камеры и поддержка беспроводных интерфейсов)?».
-* Промпт 8: «Каков план реализации пилотного внедрения: от подготовительного этапа 
-  до подведения итогов и тиражирования на весь Ауровиль?».
-* Промпт 9: «Как работает Event Sourcing и почему фиксация данных через append-only 
-  лог событий надежнее классических таблиц состояний?».
-* Промпт 10: «Каковы перспективы развития эко-сервиса после завершения пилота 
-  и как обеспечить вовлеченность резидентов общины по принципу «от простого к сложному»?».
+--- DOMAIN A: ARCHITECTURE, LEDGER INTEGRITY & RBAC SECURITY ---
+
+* Prompt 1: "Explain the overall architecture and goals of the 'Auroville 
+  Eco-Service' ERP system, as well as the role of the four isolated database 
+  schemas (dicts, infrastructure, security, analytics)."
+
+* Prompt 2: "How is the material accounting of waste structured in the system? 
+  Tell me about the connection between the bags tables, the bag_events event log, 
+  and the accounting storefront."
+
+* Prompt 4: "Describe the four-level Role-Based Access Control (RBAC) model 
+  in the system: from residents and field collectors to managers and the CEO."
+
+* Prompt 9: "How does Event Sourcing work, and why is capturing data through 
+  an append-only event log more reliable than classic state tables?"
+
+--- DOMAIN B: ADOPTION LEVELS, ECONOMICS & SIMULATION ---
+
+* Prompt 3: "What is the logic behind the 2-month pilot project for 10 key 
+  facilities (restaurants, offices, factories, guesthouses), and how does the 
+  stream simulator work?"
+
+* Prompt 5: "What are the options for field waste labeling (from laminated tags 
+  to QR codes and smart containers), and how are they selected based on 
+  complexity levels?"
+
+* Prompt 6: "How is the project's economic model (CAPEX and OPEX) structured, 
+  and what are the benefits of Dmitry Lab taking on development and technical 
+  support?"
+
+--- DOMAIN C: FIELD HARDWARE, ROADMAPS & COMMUNITY ENGAGEMENT ---
+(Note: These prompts act as triggers to detail and expand future requirements)
+
+* Prompt 7: "What are the technical requirements for operators' smartphones 
+  to scan tags (minimum OS version, camera specifications, and wireless 
+  interface support)?"
+
+* Prompt 8: "What is the implementation plan for the pilot rollout: from the 
+  preparatory phase to evaluating results and scaling across the entirety of 
+  Auroville?"
+
+* Prompt 10: "What are the development prospects for the eco-service after the 
+  pilot is completed, and how can resident engagement within the community be 
+  ensured using the 'from simple to complex' principle?"
+
+================================================================================
+             END OF PROMPTS_GUIDE.TXT — COOPERATIVE OPEN SOURCE PROTOTYPE
 ================================================================================

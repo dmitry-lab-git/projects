@@ -1,0 +1,23 @@
+Theme: Auroville Eco-Service ERP — Open Source Software Contribution
+
+Dear Auroville Eco-Service Team,
+
+Dmitry Lab is pleased to provide Auroville Eco-Service with an open-source software development prototype as an in-kind contribution.
+
+This architectural prototype establishes a structural model for waste accounting, material data flows, and user roles. It is an open-source foundation, creating no financial, legal, or operational obligations for Auroville Eco-Service.
+
+Key Materials Attached:
+
+*   Business Plan & Integration Proposal (PDF): Strategic system overview, five scalable automation options, and short economic model. Expanded version: https://github.com/dmitry-lab-git/projects/blob/main/eco_service/docs/business_plan_integration_proposal.md
+*   Project Governance & Decision Framework (PDF): A transparent responsibility matrix separating technical development from local deployment. Expanded version: https://github.com/dmitry-lab-git/projects/blob/main/eco_service/docs/project_governance_and_decisions.md
+*   Application Screenshots Gallery (PDF): Previews of the working user interfaces tailored for field collectors, sorters, and managers.
+*   AI Prompts Guide (prompts_guide.txt): A practical manual with 10 ready-to-use AI prompts. It enables any stakeholder to upload these documents to an AI chat for instant, context-aware consultations on the ERP architecture and logistics.
+
+The complete codebase, schema definitions, and technical deployment guides are openly accessible at the active GitHub Eco-Service Repository: https://github.com
+
+We welcome your operational feedback and remain available for consultative technical support should you choose to evaluate or pilot this platform.
+
+Kind regards,
+
+Dmitry Melikhov
+Dmitry Lab
