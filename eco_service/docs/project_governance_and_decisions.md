@@ -16,7 +16,7 @@
 ### 1.1 Open Source Contribution & No-Obligation Framework
 
 - **Open Source Codebase:** The existing project is available under the MIT License:  
-  https://github.com/dmitry-lab-git/projects/tree/main/eco_service/LICENSE
+  https://github.com/dmitry-lab-git/projects/blob/main/eco_service/LICENSE
 
 - **Installation & Deployment Guide:** Setup instructions and technical documentation are maintained in the repository README:  
   https://github.com/dmitry-lab-git/projects/blob/main/eco_service/readme.md
@@ -84,7 +84,7 @@ The following sequence is proposed for consideration by Auroville Eco-Service. I
 ### Stage 1 — Review of Existing Materials
 
 - [ ] Review the Open Source repository:  
-  https://github.com/dmitry-lab/projects/tree/main/eco_service
+  https://github.com/dmitry-lab-git/projects/tree/main/eco_service
 - [ ] Review the installation and deployment guide (README).
 - [ ] Examine the architecture, available functionality, and current development status.
 - [ ] Assess the proposed system against existing operational requirements.
