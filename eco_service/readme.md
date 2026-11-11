@@ -123,7 +123,7 @@ ddl/full_schema_auroville_eco_service.sql
 For a detailed description of the tables and their relationships, see:
 
 ```text
-docs/DBDD.md
+database_design_document.md
 ```
 
 ## 4. Software Requirements
