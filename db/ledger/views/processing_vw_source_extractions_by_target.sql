@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict eRyuDhBrCzFmWJREaFqkORi8HSYH4lNDK9hd5chCC6Xhc46QcRs4OntU3nUnMus
+\restrict eZ05ZdPrM4tJiZgyq9fV9xHw3XwquIWR8xWFJz5TEAAuNysI5BhRtuci0dayUjC
 
 -- Dumped from database version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
 -- Dumped by pg_dump version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
@@ -37,11 +37,13 @@ CREATE VIEW processing.vw_source_extractions_by_target AS
 
 GRANT ALL ON TABLE processing.vw_source_extractions_by_target TO receipt_processor_svc;
 GRANT ALL ON TABLE processing.vw_source_extractions_by_target TO reflex_app_user;
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE processing.vw_source_extractions_by_target TO data_ingress_worker;
+GRANT SELECT ON TABLE processing.vw_source_extractions_by_target TO pwa_workers_inspector;
 
 
 --
 -- PostgreSQL database dump complete
 --
 
-\unrestrict eRyuDhBrCzFmWJREaFqkORi8HSYH4lNDK9hd5chCC6Xhc46QcRs4OntU3nUnMus
+\unrestrict eZ05ZdPrM4tJiZgyq9fV9xHw3XwquIWR8xWFJz5TEAAuNysI5BhRtuci0dayUjC
 

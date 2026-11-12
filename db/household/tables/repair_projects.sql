@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict xeO7f1rxC3PsY1DbR9WWVLE9ayxJMHqyIRs5wrpVdDlX8KxS1DoSTDF4T8eEiOd
+\restrict DULo4thbcYclmC6O6HqgJkJMaRW94zbKcT70zA9xFiNzdsYDGtfmH68T0yYFUPj
 
 -- Dumped from database version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
 -- Dumped by pg_dump version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
@@ -29,11 +29,13 @@ SET default_table_access_method = heap;
 
 CREATE TABLE repair.projects (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
-    name character varying(255) NOT NULL,
+    name_ru character varying(255) NOT NULL,
+    name_en character varying(255) NOT NULL,
     status character varying(50) DEFAULT 'planning'::character varying NOT NULL,
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    meta jsonb DEFAULT '{}'::jsonb NOT NULL
+    meta jsonb DEFAULT '{}'::jsonb NOT NULL,
+    completed_at date
 );
 
 
@@ -46,8 +48,15 @@ ALTER TABLE ONLY repair.projects
 
 
 --
+-- Name: TABLE projects; Type: ACL; Schema: repair; Owner: -
+--
+
+GRANT SELECT ON TABLE repair.projects TO reflex_app_user;
+
+
+--
 -- PostgreSQL database dump complete
 --
 
-\unrestrict xeO7f1rxC3PsY1DbR9WWVLE9ayxJMHqyIRs5wrpVdDlX8KxS1DoSTDF4T8eEiOd
+\unrestrict DULo4thbcYclmC6O6HqgJkJMaRW94zbKcT70zA9xFiNzdsYDGtfmH68T0yYFUPj
 

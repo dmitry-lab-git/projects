@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict oeSYjS2IvwL4SOdg7dqej5QBhTSWzsZCjSFSrkhte1mYHzJK0QiAghR0waNCzeP
+\restrict EGf97aiESyTtpiB3LIIfonRVMVI5ndvH8NxO9g1keCitj50qaf8YbaMt304yZw6
 
 -- Dumped from database version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
 -- Dumped by pg_dump version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
@@ -55,11 +55,13 @@ CREATE INDEX idx_source_target_name ON processing.source_extractions USING btree
 
 GRANT ALL ON TABLE processing.source_extractions TO receipt_processor_svc;
 GRANT ALL ON TABLE processing.source_extractions TO reflex_app_user;
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE processing.source_extractions TO data_ingress_worker;
+GRANT SELECT ON TABLE processing.source_extractions TO pwa_workers_inspector;
 
 
 --
 -- PostgreSQL database dump complete
 --
 
-\unrestrict oeSYjS2IvwL4SOdg7dqej5QBhTSWzsZCjSFSrkhte1mYHzJK0QiAghR0waNCzeP
+\unrestrict EGf97aiESyTtpiB3LIIfonRVMVI5ndvH8NxO9g1keCitj50qaf8YbaMt304yZw6
 

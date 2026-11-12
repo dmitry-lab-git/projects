@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict 3l2vVCig9UZSAQXSG23M7iCiFWFCxZBu1MDe5R4JzG0JdbLSFCQWIBpDT6f3BQ9
+\restrict 4JetD57W8dxjsp8HoxVnQxUK08PXWU0BG4b13zrRnChNgeoiM3G5gSto6SSE9uV
 
 -- Dumped from database version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
 -- Dumped by pg_dump version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
@@ -76,11 +76,21 @@ ALTER TABLE ONLY dicts.dict_ledger_versions
 
 
 --
+-- Name: dict_ledger_versions fk_ledger_versions_status; Type: FK CONSTRAINT; Schema: dicts; Owner: -
+--
+
+ALTER TABLE ONLY dicts.dict_ledger_versions
+    ADD CONSTRAINT fk_ledger_versions_status FOREIGN KEY (status_id) REFERENCES dicts.dict_statuses(id);
+
+
+--
 -- Name: TABLE dict_ledger_versions; Type: ACL; Schema: dicts; Owner: -
 --
 
 GRANT SELECT ON TABLE dicts.dict_ledger_versions TO receipt_processor_svc;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE dicts.dict_ledger_versions TO reflex_app_user;
+GRANT SELECT ON TABLE dicts.dict_ledger_versions TO data_ingress_worker;
+GRANT SELECT ON TABLE dicts.dict_ledger_versions TO pwa_workers_inspector;
 
 
 --
@@ -95,5 +105,5 @@ GRANT SELECT,USAGE ON SEQUENCE dicts.dict_ledger_versions_version_id_seq TO refl
 -- PostgreSQL database dump complete
 --
 
-\unrestrict 3l2vVCig9UZSAQXSG23M7iCiFWFCxZBu1MDe5R4JzG0JdbLSFCQWIBpDT6f3BQ9
+\unrestrict 4JetD57W8dxjsp8HoxVnQxUK08PXWU0BG4b13zrRnChNgeoiM3G5gSto6SSE9uV
 

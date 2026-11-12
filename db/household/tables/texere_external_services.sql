@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict Yd0bQVA8KdSYkNTdTFOu0LiMH9k4KaH3Pg5ZrpacOgennDyM3gSxdAjYEw693WE
+\restrict rqyrFMv9YWQUNZXAw1Q5gsf64ImLWdSzuz2mKQvZnufdMNxlmznPSamGezbzvZX
 
 -- Dumped from database version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
 -- Dumped by pg_dump version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
@@ -64,8 +64,15 @@ CREATE INDEX idx_external_services_tx_code ON texere.external_services USING btr
 
 
 --
+-- Name: TABLE external_services; Type: ACL; Schema: texere; Owner: -
+--
+
+GRANT SELECT ON TABLE texere.external_services TO reflex_app_user;
+
+
+--
 -- PostgreSQL database dump complete
 --
 
-\unrestrict Yd0bQVA8KdSYkNTdTFOu0LiMH9k4KaH3Pg5ZrpacOgennDyM3gSxdAjYEw693WE
+\unrestrict rqyrFMv9YWQUNZXAw1Q5gsf64ImLWdSzuz2mKQvZnufdMNxlmznPSamGezbzvZX
 

@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict ZkXoCAENpqv4TrqxYbXCBTmWtCJFzDg3q119CnPBbI0gRXEGAlWOwPYkApIrvP8
+\restrict ZN88iH4UaZLAv8APfUqwqFc27fl8uhRMcye303UJAGdac0RuYKMjMv77LUCjbvP
 
 -- Dumped from database version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
 -- Dumped by pg_dump version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
@@ -49,11 +49,13 @@ ALTER TABLE ONLY processing.aive_lock
 
 GRANT ALL ON TABLE processing.aive_lock TO receipt_processor_svc;
 GRANT ALL ON TABLE processing.aive_lock TO reflex_app_user;
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE processing.aive_lock TO data_ingress_worker;
+GRANT SELECT ON TABLE processing.aive_lock TO pwa_workers_inspector;
 
 
 --
 -- PostgreSQL database dump complete
 --
 
-\unrestrict ZkXoCAENpqv4TrqxYbXCBTmWtCJFzDg3q119CnPBbI0gRXEGAlWOwPYkApIrvP8
+\unrestrict ZN88iH4UaZLAv8APfUqwqFc27fl8uhRMcye303UJAGdac0RuYKMjMv77LUCjbvP
 

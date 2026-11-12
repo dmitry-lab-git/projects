@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict oQi3Pyd1CjSRgJLeePUkcPCaGb61vhEovAoUHUfpCbOvnT1U33PWoEH0hSqWBo3
+\restrict 6bWG5OfESxPxg39nIl3Jw6ckCo7htdrHY0KdgkdU8v3sa0duSU0PZvvAzmLOwz6
 
 -- Dumped from database version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
 -- Dumped by pg_dump version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
@@ -101,6 +101,8 @@ ALTER TABLE ONLY dicts.merchants
 
 GRANT SELECT ON TABLE dicts.merchants TO receipt_processor_svc;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE dicts.merchants TO reflex_app_user;
+GRANT SELECT ON TABLE dicts.merchants TO data_ingress_worker;
+GRANT SELECT ON TABLE dicts.merchants TO pwa_workers_inspector;
 
 
 --
@@ -115,5 +117,5 @@ GRANT SELECT,USAGE ON SEQUENCE dicts.merchants_code_seq TO reflex_app_user;
 -- PostgreSQL database dump complete
 --
 
-\unrestrict oQi3Pyd1CjSRgJLeePUkcPCaGb61vhEovAoUHUfpCbOvnT1U33PWoEH0hSqWBo3
+\unrestrict 6bWG5OfESxPxg39nIl3Jw6ckCo7htdrHY0KdgkdU8v3sa0duSU0PZvvAzmLOwz6
 

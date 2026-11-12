@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict HDXSEq7EDm2VLUSorPYvbP4pBie4TWA9HRImi7rMaMqWJDto7xzZedzIMglIg5N
+\restrict UhuCOIZBP2Rg2aZjbC9bwc2UPH4wDQmvsGS11ayfD27bxtf0AvfjZRMtBjz3R9A
 
 -- Dumped from database version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
 -- Dumped by pg_dump version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
@@ -30,20 +30,20 @@ SET default_table_access_method = heap;
 CREATE TABLE audit.staging_transactions (
     id uuid DEFAULT gen_random_uuid() CONSTRAINT staging_transactions_v1_1_id_not_null NOT NULL,
     source_extraction_id uuid CONSTRAINT staging_transactions_v1_1_source_extraction_id_not_null NOT NULL,
-    status_id uuid,
+    status_id uuid NOT NULL,
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
     transaction_name character varying(512),
-    entity_id uuid,
+    entity_id uuid NOT NULL,
     registration_date date,
     operation_date date,
-    category_id uuid,
-    responsible_id uuid,
-    contragent_from_id uuid,
-    contragent_to_id uuid,
-    account_id uuid,
-    type_id uuid,
+    category_id uuid NOT NULL,
+    responsible_id uuid NOT NULL,
+    contragent_from_id uuid NOT NULL,
+    contragent_to_id uuid NOT NULL,
+    account_id uuid NOT NULL,
+    type_id uuid NOT NULL,
     amount numeric(19,4),
-    currency_id uuid,
+    currency_id uuid NOT NULL,
     operation_time time without time zone,
     code integer
 );
@@ -98,5 +98,5 @@ GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE audit.staging_transactions TO reflex_
 -- PostgreSQL database dump complete
 --
 
-\unrestrict HDXSEq7EDm2VLUSorPYvbP4pBie4TWA9HRImi7rMaMqWJDto7xzZedzIMglIg5N
+\unrestrict UhuCOIZBP2Rg2aZjbC9bwc2UPH4wDQmvsGS11ayfD27bxtf0AvfjZRMtBjz3R9A
 

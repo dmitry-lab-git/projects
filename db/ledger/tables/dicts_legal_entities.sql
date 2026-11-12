@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict gJuPfMmFddesVvovWGkJWrRgnnZAHVcTtWJd1RztiWtQ64Ri3CF2YdPouYYDtuo
+\restrict G5SmS7dZtZf9HofKeykWgkh1MlZmq3AcmdT1E3SwXPOluaUrrhfFl9hwCPg5G09
 
 -- Dumped from database version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
 -- Dumped by pg_dump version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
@@ -103,6 +103,8 @@ CREATE INDEX idx_legal_entities_tax ON dicts.legal_entities USING btree (tax_num
 
 GRANT SELECT ON TABLE dicts.legal_entities TO receipt_processor_svc;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE dicts.legal_entities TO reflex_app_user;
+GRANT SELECT ON TABLE dicts.legal_entities TO data_ingress_worker;
+GRANT SELECT ON TABLE dicts.legal_entities TO pwa_workers_inspector;
 
 
 --
@@ -117,5 +119,5 @@ GRANT SELECT,USAGE ON SEQUENCE dicts.legal_entities_code_seq TO reflex_app_user;
 -- PostgreSQL database dump complete
 --
 
-\unrestrict gJuPfMmFddesVvovWGkJWrRgnnZAHVcTtWJd1RztiWtQ64Ri3CF2YdPouYYDtuo
+\unrestrict G5SmS7dZtZf9HofKeykWgkh1MlZmq3AcmdT1E3SwXPOluaUrrhfFl9hwCPg5G09
 

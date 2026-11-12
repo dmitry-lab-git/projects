@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict FZtxJjFkFz102iACXsnX7QF2fG9lD0FuJJCkUBNq1MeiQGGb6BidlMqiNHtRsfL
+\restrict zSMCoNHqiCTmU9QrZ8Z2Xo2Gbyn7b0xebFNX9gHYfi672Zv96Wt7UdF251uzFq0
 
 -- Dumped from database version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
 -- Dumped by pg_dump version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
@@ -91,8 +91,15 @@ UNION ALL
 
 
 --
+-- Name: TABLE reconciled_transactions_summary; Type: ACL; Schema: texere; Owner: -
+--
+
+GRANT SELECT ON TABLE texere.reconciled_transactions_summary TO reflex_app_user;
+
+
+--
 -- PostgreSQL database dump complete
 --
 
-\unrestrict FZtxJjFkFz102iACXsnX7QF2fG9lD0FuJJCkUBNq1MeiQGGb6BidlMqiNHtRsfL
+\unrestrict zSMCoNHqiCTmU9QrZ8Z2Xo2Gbyn7b0xebFNX9gHYfi672Zv96Wt7UdF251uzFq0
 

@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict EdTXCgj9nWLC9lGDvnS6v9SvWnYENHSZDbf0myuqC4CSvatwdTHtuqun3bYfyKa
+\restrict 2vONiQkyfgFKhBJdnwICcF9w3ge9kTB44fUCQ4x9bSunmaAL7Xihelfa9wbaD4P
 
 -- Dumped from database version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
 -- Dumped by pg_dump version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
@@ -43,5 +43,5 @@ GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.v_ledger_duck TO antigravity;
 -- PostgreSQL database dump complete
 --
 
-\unrestrict EdTXCgj9nWLC9lGDvnS6v9SvWnYENHSZDbf0myuqC4CSvatwdTHtuqun3bYfyKa
+\unrestrict 2vONiQkyfgFKhBJdnwICcF9w3ge9kTB44fUCQ4x9bSunmaAL7Xihelfa9wbaD4P
 

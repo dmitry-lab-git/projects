@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict fzHZlSC5ZNYsBFN04d1cz5ANFj6RjjxPJcUJGcm21D3AFFEk22vp8pSiHhHRS4h
+\restrict zpkh5wOxNRnXM9KDO8Pq4ohOBcm0DOHuxs6L6QgPGkHpGxhkuVAskrHUo1mA5i7
 
 -- Dumped from database version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
 -- Dumped by pg_dump version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
@@ -65,16 +65,34 @@ CREATE INDEX idx_accounts_status_id ON dicts.accounts USING btree (status_id);
 
 
 --
+-- Name: accounts fk_accounts_currency; Type: FK CONSTRAINT; Schema: dicts; Owner: -
+--
+
+ALTER TABLE ONLY dicts.accounts
+    ADD CONSTRAINT fk_accounts_currency FOREIGN KEY (currency) REFERENCES dicts.dicts_currencies(id);
+
+
+--
+-- Name: accounts fk_accounts_status; Type: FK CONSTRAINT; Schema: dicts; Owner: -
+--
+
+ALTER TABLE ONLY dicts.accounts
+    ADD CONSTRAINT fk_accounts_status FOREIGN KEY (status_id) REFERENCES dicts.dict_statuses(id);
+
+
+--
 -- Name: TABLE accounts; Type: ACL; Schema: dicts; Owner: -
 --
 
 GRANT SELECT ON TABLE dicts.accounts TO receipt_processor_svc;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE dicts.accounts TO reflex_app_user;
+GRANT SELECT ON TABLE dicts.accounts TO data_ingress_worker;
+GRANT SELECT ON TABLE dicts.accounts TO pwa_workers_inspector;
 
 
 --
 -- PostgreSQL database dump complete
 --
 
-\unrestrict fzHZlSC5ZNYsBFN04d1cz5ANFj6RjjxPJcUJGcm21D3AFFEk22vp8pSiHhHRS4h
+\unrestrict zpkh5wOxNRnXM9KDO8Pq4ohOBcm0DOHuxs6L6QgPGkHpGxhkuVAskrHUo1mA5i7
 

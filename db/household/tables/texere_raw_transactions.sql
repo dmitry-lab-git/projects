@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict d6GUWTGf3S5kTxhGMdz5gd8Fz0nkGfSHe9CAYfBebemucVBFs4McNHh0ffnEYMO
+\restrict 3cpQ2JlqGfMl7Om2DGSaoZ8v2imSwTWGIV8B0qmZQymbKrTyErdEoPIUi1Yfr0j
 
 -- Dumped from database version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
 -- Dumped by pg_dump version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
@@ -45,8 +45,15 @@ CREATE TABLE texere.raw_transactions (
 
 
 --
+-- Name: TABLE raw_transactions; Type: ACL; Schema: texere; Owner: -
+--
+
+GRANT SELECT ON TABLE texere.raw_transactions TO reflex_app_user;
+
+
+--
 -- PostgreSQL database dump complete
 --
 
-\unrestrict d6GUWTGf3S5kTxhGMdz5gd8Fz0nkGfSHe9CAYfBebemucVBFs4McNHh0ffnEYMO
+\unrestrict 3cpQ2JlqGfMl7Om2DGSaoZ8v2imSwTWGIV8B0qmZQymbKrTyErdEoPIUi1Yfr0j
 

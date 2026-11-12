@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict QLXsnfZuvI5hrPsOvAnPEoxmfaMSw3TmHBmK4s1alWVLQsJZZ6bNP2A2EaXjB2r
+\restrict gS9X48nGFrqLlpArVN4ZvDplglASX9Y3rZfDffAGdbGgoQcmc8FdTdelVqGs8Iz
 
 -- Dumped from database version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
 -- Dumped by pg_dump version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
@@ -40,5 +40,5 @@ CREATE TABLE archive.dict_statuses_20260629_205647 (
 -- PostgreSQL database dump complete
 --
 
-\unrestrict QLXsnfZuvI5hrPsOvAnPEoxmfaMSw3TmHBmK4s1alWVLQsJZZ6bNP2A2EaXjB2r
+\unrestrict gS9X48nGFrqLlpArVN4ZvDplglASX9Y3rZfDffAGdbGgoQcmc8FdTdelVqGs8Iz
 

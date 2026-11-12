@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict DxKkkixmpgnFKFKHBTU3cPltFITMEQdEK5mOxtBQxPhvkA1Gga8bc6vI2s4gcpN
+\restrict xMcKF92GGQIoXxqRabYuLJxI6Br1l6Pk7GYKi1zBaqwkID8r7yTWMxOYVJhP8Ow
 
 -- Dumped from database version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
 -- Dumped by pg_dump version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
@@ -62,5 +62,5 @@ GRANT SELECT ON TABLE reports.trial_balance TO reflex_app_user;
 -- PostgreSQL database dump complete
 --
 
-\unrestrict DxKkkixmpgnFKFKHBTU3cPltFITMEQdEK5mOxtBQxPhvkA1Gga8bc6vI2s4gcpN
+\unrestrict xMcKF92GGQIoXxqRabYuLJxI6Br1l6Pk7GYKi1zBaqwkID8r7yTWMxOYVJhP8Ow
 

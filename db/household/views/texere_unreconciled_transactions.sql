@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict p9czOj5i2tbbiUlGj3crWLvfuBFjDNQG7GSHk5iVNdyrLofnZxOpVlVSkkZl9uh
+\restrict FCs0dvrPhlpUfTObYGUSxDgrrV0QuwPrgRWen2I5eXgmibyQdPFwBZTgVAVFQwL
 
 -- Dumped from database version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
 -- Dumped by pg_dump version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
@@ -53,8 +53,15 @@ CREATE VIEW texere.unreconciled_transactions AS
 
 
 --
+-- Name: TABLE unreconciled_transactions; Type: ACL; Schema: texere; Owner: -
+--
+
+GRANT SELECT ON TABLE texere.unreconciled_transactions TO reflex_app_user;
+
+
+--
 -- PostgreSQL database dump complete
 --
 
-\unrestrict p9czOj5i2tbbiUlGj3crWLvfuBFjDNQG7GSHk5iVNdyrLofnZxOpVlVSkkZl9uh
+\unrestrict FCs0dvrPhlpUfTObYGUSxDgrrV0QuwPrgRWen2I5eXgmibyQdPFwBZTgVAVFQwL
 

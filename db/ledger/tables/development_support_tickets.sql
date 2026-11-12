@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict lijSKyUFbXzC0c8hsU4o7aKD2HhPreQQpMVAuNgfHUUZb294XpTmyP3yB5ezHTy
+\restrict q8ugYcIMm4sCvPldRKPqyoI5aK9X67Ty8eDEinnVQQaaw9aLgj7nTEPDgtzSa5F
 
 -- Dumped from database version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
 -- Dumped by pg_dump version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
@@ -76,8 +76,15 @@ ALTER TABLE ONLY development.support_tickets
 
 
 --
+-- Name: TABLE support_tickets; Type: ACL; Schema: development; Owner: -
+--
+
+GRANT SELECT ON TABLE development.support_tickets TO pwa_workers_inspector;
+
+
+--
 -- PostgreSQL database dump complete
 --
 
-\unrestrict lijSKyUFbXzC0c8hsU4o7aKD2HhPreQQpMVAuNgfHUUZb294XpTmyP3yB5ezHTy
+\unrestrict q8ugYcIMm4sCvPldRKPqyoI5aK9X67Ty8eDEinnVQQaaw9aLgj7nTEPDgtzSa5F
 

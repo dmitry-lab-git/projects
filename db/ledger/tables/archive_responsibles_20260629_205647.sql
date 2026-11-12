@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict YflnGRRrnKgBhTucam0djJVRUIQeQ292FwMZpGANJUuoCXEvQ1Jw2qtUC9njD3i
+\restrict Cu7VILEuFdHjbII94PkwMppJxbrIB7g1gFpEzpiwtHKqNv4X5pyyaoNiEarLynr
 
 -- Dumped from database version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
 -- Dumped by pg_dump version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
@@ -41,5 +41,5 @@ CREATE TABLE archive.responsibles_20260629_205647 (
 -- PostgreSQL database dump complete
 --
 
-\unrestrict YflnGRRrnKgBhTucam0djJVRUIQeQ292FwMZpGANJUuoCXEvQ1Jw2qtUC9njD3i
+\unrestrict Cu7VILEuFdHjbII94PkwMppJxbrIB7g1gFpEzpiwtHKqNv4X5pyyaoNiEarLynr
 

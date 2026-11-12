@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict Bx29F1bCwJiF5WJnciUVpaAKNyfI9KPfUJLRM2mXOmUJLU8J3lalp6Cyc3XYCPX
+\restrict LVj8B4YC0b8Kuw25nydVu0RCVlbDS02sUOo97rJRcSj92F2bUglXD07H7SKp3cY
 
 -- Dumped from database version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
 -- Dumped by pg_dump version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
@@ -46,5 +46,5 @@ GRANT SELECT ON TABLE reports.v_current_projects TO reflex_app_user;
 -- PostgreSQL database dump complete
 --
 
-\unrestrict Bx29F1bCwJiF5WJnciUVpaAKNyfI9KPfUJLRM2mXOmUJLU8J3lalp6Cyc3XYCPX
+\unrestrict LVj8B4YC0b8Kuw25nydVu0RCVlbDS02sUOo97rJRcSj92F2bUglXD07H7SKp3cY
 

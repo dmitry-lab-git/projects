@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict MzUzgxenhgOPGbUddfPnVA6pArUwSKBfLuBfbE8yDcD6JbHvcUGUGK2A5wpNeAT
+\restrict De2Q5CnmQMaRajih9blErQliedXtbCS0SG1gf3Vuxil69Kco8rafaL7BLqkwq6d
 
 -- Dumped from database version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
 -- Dumped by pg_dump version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
@@ -32,7 +32,6 @@ CREATE TABLE dicts.entities (
     entity_name character varying(50),
     entity_id character varying(50),
     category_id character varying(50),
-    keywords text[] DEFAULT '{}'::text[],
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     status_id uuid NOT NULL
@@ -56,16 +55,33 @@ ALTER TABLE ONLY dicts.entities
 
 
 --
+-- Name: entities trg_entities_autocomplete; Type: TRIGGER; Schema: dicts; Owner: -
+--
+
+CREATE TRIGGER trg_entities_autocomplete BEFORE INSERT ON dicts.entities FOR EACH ROW EXECUTE FUNCTION dicts.trg_bi_entities_autocomplete();
+
+
+--
+-- Name: entities fk_entities_status; Type: FK CONSTRAINT; Schema: dicts; Owner: -
+--
+
+ALTER TABLE ONLY dicts.entities
+    ADD CONSTRAINT fk_entities_status FOREIGN KEY (status_id) REFERENCES dicts.dict_statuses(id);
+
+
+--
 -- Name: TABLE entities; Type: ACL; Schema: dicts; Owner: -
 --
 
 GRANT SELECT ON TABLE dicts.entities TO receipt_processor_svc;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE dicts.entities TO reflex_app_user;
+GRANT SELECT ON TABLE dicts.entities TO data_ingress_worker;
+GRANT SELECT ON TABLE dicts.entities TO pwa_workers_inspector;
 
 
 --
 -- PostgreSQL database dump complete
 --
 
-\unrestrict MzUzgxenhgOPGbUddfPnVA6pArUwSKBfLuBfbE8yDcD6JbHvcUGUGK2A5wpNeAT
+\unrestrict De2Q5CnmQMaRajih9blErQliedXtbCS0SG1gf3Vuxil69Kco8rafaL7BLqkwq6d
 

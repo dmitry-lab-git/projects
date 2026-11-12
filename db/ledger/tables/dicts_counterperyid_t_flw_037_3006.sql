@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict 023QQGIL0r39nZwPP9p6i7NWcH8wGxW2egTWhvusC6FL5xtC16NDbn1n56AKyk9
+\restrict lLihnZCJNSZi9Io0FgDLXfdgx31CXR2o8fr5TMMhiMR8XWmpUsb8johuqdsZSM1
 
 -- Dumped from database version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
 -- Dumped by pg_dump version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
@@ -49,11 +49,13 @@ CREATE TABLE dicts.counterperyid_t_flw_037_3006 (
 
 GRANT SELECT ON TABLE dicts.counterperyid_t_flw_037_3006 TO receipt_processor_svc;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE dicts.counterperyid_t_flw_037_3006 TO reflex_app_user;
+GRANT SELECT ON TABLE dicts.counterperyid_t_flw_037_3006 TO data_ingress_worker;
+GRANT SELECT ON TABLE dicts.counterperyid_t_flw_037_3006 TO pwa_workers_inspector;
 
 
 --
 -- PostgreSQL database dump complete
 --
 
-\unrestrict 023QQGIL0r39nZwPP9p6i7NWcH8wGxW2egTWhvusC6FL5xtC16NDbn1n56AKyk9
+\unrestrict lLihnZCJNSZi9Io0FgDLXfdgx31CXR2o8fr5TMMhiMR8XWmpUsb8johuqdsZSM1
 

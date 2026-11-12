@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict 0mHAzKtdmI6x7jVF5gBwsJiGd65pHbyvDX7KdI8wvDA7cAOC0ZQeuJ1vI6kah9O
+\restrict f1xjyXH11toTSBQXdmgPUiLac1V17CV77w3mEzzdvFRX9NcziaywChC5x5b8Iu9
 
 -- Dumped from database version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
 -- Dumped by pg_dump version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
@@ -92,8 +92,15 @@ CREATE INDEX idx_patterns_inv_tx_link ON texere.patterns_inventory USING btree (
 
 
 --
+-- Name: TABLE patterns_inventory; Type: ACL; Schema: texere; Owner: -
+--
+
+GRANT SELECT ON TABLE texere.patterns_inventory TO reflex_app_user;
+
+
+--
 -- PostgreSQL database dump complete
 --
 
-\unrestrict 0mHAzKtdmI6x7jVF5gBwsJiGd65pHbyvDX7KdI8wvDA7cAOC0ZQeuJ1vI6kah9O
+\unrestrict f1xjyXH11toTSBQXdmgPUiLac1V17CV77w3mEzzdvFRX9NcziaywChC5x5b8Iu9
 

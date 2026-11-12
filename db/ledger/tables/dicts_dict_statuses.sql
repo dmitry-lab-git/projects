@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict lHc1DhHSDV2W1qJpWYLFDZ4Xm2WNjnr0oym5J4GnRS230Q9OpIJMZVO2K0jt1qQ
+\restrict SC4mfYpnBSrILPcUJI0ZmauPlvEXdAmPDNUyXhwlpuM7ZQMYeZee8aNYmycQYLX
 
 -- Dumped from database version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
 -- Dumped by pg_dump version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
@@ -32,7 +32,8 @@ CREATE TABLE dicts.dict_statuses (
     entity_type character varying(50) NOT NULL,
     code character varying(20) NOT NULL,
     name character varying(100) NOT NULL,
-    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT chk_no_lowercase_transactions CHECK (((entity_type)::text <> 'transactions'::text))
 );
 
 
@@ -64,11 +65,13 @@ CREATE UNIQUE INDEX idx_unique_status_type_code ON dicts.dict_statuses USING btr
 
 GRANT SELECT ON TABLE dicts.dict_statuses TO receipt_processor_svc;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE dicts.dict_statuses TO reflex_app_user;
+GRANT SELECT ON TABLE dicts.dict_statuses TO data_ingress_worker;
+GRANT SELECT ON TABLE dicts.dict_statuses TO pwa_workers_inspector;
 
 
 --
 -- PostgreSQL database dump complete
 --
 
-\unrestrict lHc1DhHSDV2W1qJpWYLFDZ4Xm2WNjnr0oym5J4GnRS230Q9OpIJMZVO2K0jt1qQ
+\unrestrict SC4mfYpnBSrILPcUJI0ZmauPlvEXdAmPDNUyXhwlpuM7ZQMYeZee8aNYmycQYLX
 

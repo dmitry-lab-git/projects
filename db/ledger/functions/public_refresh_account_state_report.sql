@@ -13,7 +13,7 @@ BEGIN
     -- 1. Очищаем старый отчет
     TRUNCATE TABLE reports.account_state_report;
 
-    -- 2. Генерируем новый отчет и вставляем данные (здесь account_id остается кодом для отчета)
+    -- 2. Генерируем новый отчет и вставляем данные
     INSERT INTO reports.account_state_report (
         account_id, 
         account_name, 
@@ -59,7 +59,7 @@ BEGIN
                 WHEN EXISTS (
                     SELECT 1 FROM public.ledger l 
                     WHERE l.account_id = acc.account_id 
-                    AND l.operation_date > CURRENT_DATE - INTERVAL '3 months'
+                      AND l.operation_date > CURRENT_DATE - INTERVAL '3 months'
                 ) OR ll.current_balance != 0 THEN 'active'
                 ELSE 'inactive'
             END as state,
@@ -74,57 +74,8 @@ BEGIN
     )
     SELECT * FROM combined;
 
-    -- 3. Снимаем показатели, вытаскивая оригинальные UUID счетов по их коду (account_id)
-    SELECT 
-        COUNT(*),
-        COUNT(*) FILTER (WHERE r.account_balance_status = 'verified'),
-        COALESCE(SUM(r.balance) FILTER (WHERE r.account_balance_status = 'verified'), 0),
-        -- Собираем массив реальных UUID из таблицы dicts.accounts
-        ARRAY_AGG(a.id ORDER BY a.id) FILTER (WHERE r.account_balance_status = 'verified'),
-        -- Хэш теперь тоже строится на основе стабильных UUID счетов и их балансов
-        md5(ARRAY_TO_STRING(ARRAY_AGG(a.id::text || ':' || r.balance::text ORDER BY a.id) FILTER (WHERE r.account_balance_status = 'verified'), ','))
-    INTO 
-        v_total_count, 
-        v_verified_count,
-        v_total_balance_sum,
-        v_verified_ids,
-        v_verification_hash
-    FROM reports.account_state_report r
-    LEFT JOIN dicts.accounts a ON r.account_id = a.account_id; -- Джойнимся для получения UUID (a.id)
-
-    -- 4. Проверяем условие на SUCCESS
-    IF v_total_count > 0 AND v_total_count = v_verified_count THEN
-        
-        SELECT id INTO v_status_id 
-        FROM dicts.dict_statuses 
-        WHERE entity_type = 'SYSTEM_VERIFICATION' AND code = 'SUCCESS';
-
-        IF v_status_id IS NULL THEN
-            INSERT INTO dicts.dict_statuses (entity_type, code, name)
-            VALUES ('SYSTEM_VERIFICATION', 'SUCCESS', 'Все счета верифицированы')
-            RETURNING id INTO v_status_id;
-        END IF;
-
-        -- Записываем лог
-        INSERT INTO reports.system_verification_log (
-            status_id,
-            total_accounts_processed, 
-            verified_count, 
-            total_balance_sum,
-            verified_account_ids,
-            verification_hash
-        )
-        VALUES (
-            v_status_id,
-            v_total_count, 
-            v_verified_count, 
-            v_total_balance_sum,
-            COALESCE(v_verified_ids, '{}'::UUID[]),
-            v_verification_hash
-        )
-        ON CONFLICT (verification_hash) DO NOTHING;
-        
-    END IF;
+    -- 3. Вызываем отдельную функцию логирования
+    PERFORM public.log_system_verification();
 
 END;
 $function$

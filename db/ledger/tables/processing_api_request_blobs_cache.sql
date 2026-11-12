@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict k0leJEpAgOeBg6tjxBZJbkVUcHBJJGyFqMOU5vrlwLBGH2163CbYZYelRMbiE24
+\restrict ix3lXB3V2bRN5aEi5tfXG0pHs7nJzFj4kp1IkyQXywHnaf5ktu0cy8FdeOLcvdK
 
 -- Dumped from database version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
 -- Dumped by pg_dump version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
@@ -63,11 +63,13 @@ CREATE INDEX idx_blobs_cache_request_id ON processing.api_request_blobs_cache US
 
 GRANT ALL ON TABLE processing.api_request_blobs_cache TO receipt_processor_svc;
 GRANT ALL ON TABLE processing.api_request_blobs_cache TO reflex_app_user;
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE processing.api_request_blobs_cache TO data_ingress_worker;
+GRANT SELECT ON TABLE processing.api_request_blobs_cache TO pwa_workers_inspector;
 
 
 --
 -- PostgreSQL database dump complete
 --
 
-\unrestrict k0leJEpAgOeBg6tjxBZJbkVUcHBJJGyFqMOU5vrlwLBGH2163CbYZYelRMbiE24
+\unrestrict ix3lXB3V2bRN5aEi5tfXG0pHs7nJzFj4kp1IkyQXywHnaf5ktu0cy8FdeOLcvdK
 

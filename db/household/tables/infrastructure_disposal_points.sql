@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict NOrRB8u8L3Evj4aGXiiaicPFdK9QNBeDZGlzR5QvmU0hSQLHsL0yueZkViYpmti
+\restrict cLp8lapRlKGXVJmwn4pOS9lQHkaUhECaMLPS1j8ojygtP91swidXpu7nhxXQPsi
 
 -- Dumped from database version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
 -- Dumped by pg_dump version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
@@ -56,5 +56,5 @@ GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE infrastructure.disposal_points TO ref
 -- PostgreSQL database dump complete
 --
 
-\unrestrict NOrRB8u8L3Evj4aGXiiaicPFdK9QNBeDZGlzR5QvmU0hSQLHsL0yueZkViYpmti
+\unrestrict cLp8lapRlKGXVJmwn4pOS9lQHkaUhECaMLPS1j8ojygtP91swidXpu7nhxXQPsi
 

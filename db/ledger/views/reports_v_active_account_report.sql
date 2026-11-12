@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict 30uAzPb3iOtDzDXAJWCxclOfgB5WcYppb3AJGXzLgYEDB3XSiAtWqBKYYAJ6BD2
+\restrict WZqGraO7mxcagnnt5UpEEmCFKk9o8RoH5LhC2XC0lLaKShOYpa0OdmW3fK7B58d
 
 -- Dumped from database version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
 -- Dumped by pg_dump version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
@@ -45,5 +45,5 @@ GRANT SELECT ON TABLE reports.v_active_account_report TO reflex_app_user;
 -- PostgreSQL database dump complete
 --
 
-\unrestrict 30uAzPb3iOtDzDXAJWCxclOfgB5WcYppb3AJGXzLgYEDB3XSiAtWqBKYYAJ6BD2
+\unrestrict WZqGraO7mxcagnnt5UpEEmCFKk9o8RoH5LhC2XC0lLaKShOYpa0OdmW3fK7B58d
 

@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict C11ZsehgFdzUbAHB8tBn6txWEOBwUBw8Vw5VlydfGkBYpHTss56ppDc3gRQIprJ
+\restrict WX8Ifh3toxfXmiGrG3CHx5aTY8ra9bxU2vXaw4vGYovyGqKqe0QgKJVqHbrRBEX
 
 -- Dumped from database version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
 -- Dumped by pg_dump version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
@@ -47,11 +47,13 @@ ALTER TABLE ONLY processing.api_blocked_models
 
 GRANT ALL ON TABLE processing.api_blocked_models TO receipt_processor_svc;
 GRANT ALL ON TABLE processing.api_blocked_models TO reflex_app_user;
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE processing.api_blocked_models TO data_ingress_worker;
+GRANT SELECT ON TABLE processing.api_blocked_models TO pwa_workers_inspector;
 
 
 --
 -- PostgreSQL database dump complete
 --
 
-\unrestrict C11ZsehgFdzUbAHB8tBn6txWEOBwUBw8Vw5VlydfGkBYpHTss56ppDc3gRQIprJ
+\unrestrict WX8Ifh3toxfXmiGrG3CHx5aTY8ra9bxU2vXaw4vGYovyGqKqe0QgKJVqHbrRBEX
 

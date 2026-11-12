@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict Ib6jxcyMbcfop7ab7DGptYS0ZKZlkQ6qmLeabqU6vGpb7ZmL7DSwTdmkfv7B8M8
+\restrict 8qCqDVpyeMNv6K5lpMAVuza1PZY59bcR31YuFgztvxSSGSZWpGXLkTub8zDNGcb
 
 -- Dumped from database version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
 -- Dumped by pg_dump version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
@@ -70,5 +70,5 @@ GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE medicine.schedules TO reflex_app_user
 -- PostgreSQL database dump complete
 --
 
-\unrestrict Ib6jxcyMbcfop7ab7DGptYS0ZKZlkQ6qmLeabqU6vGpb7ZmL7DSwTdmkfv7B8M8
+\unrestrict 8qCqDVpyeMNv6K5lpMAVuza1PZY59bcR31YuFgztvxSSGSZWpGXLkTub8zDNGcb
 

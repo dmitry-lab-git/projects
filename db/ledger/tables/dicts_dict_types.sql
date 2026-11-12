@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict Trn94HlAtVvetWc56mLRVCYCu3KxijZ7eH437fePXqBLehw875jeIbCCHAzVgXG
+\restrict qKIcIoJ7wKFYCw0zGx4fhxLrkZ0hZVjZ2Wzy8K4JAwHRfuviegskBz6Kkbep0OY
 
 -- Dumped from database version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
 -- Dumped by pg_dump version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
@@ -58,16 +58,26 @@ ALTER TABLE ONLY dicts.dict_types
 
 
 --
+-- Name: dict_types fk_types_status; Type: FK CONSTRAINT; Schema: dicts; Owner: -
+--
+
+ALTER TABLE ONLY dicts.dict_types
+    ADD CONSTRAINT fk_types_status FOREIGN KEY (status_id) REFERENCES dicts.dict_statuses(id);
+
+
+--
 -- Name: TABLE dict_types; Type: ACL; Schema: dicts; Owner: -
 --
 
 GRANT SELECT ON TABLE dicts.dict_types TO receipt_processor_svc;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE dicts.dict_types TO reflex_app_user;
+GRANT SELECT ON TABLE dicts.dict_types TO data_ingress_worker;
+GRANT SELECT ON TABLE dicts.dict_types TO pwa_workers_inspector;
 
 
 --
 -- PostgreSQL database dump complete
 --
 
-\unrestrict Trn94HlAtVvetWc56mLRVCYCu3KxijZ7eH437fePXqBLehw875jeIbCCHAzVgXG
+\unrestrict qKIcIoJ7wKFYCw0zGx4fhxLrkZ0hZVjZ2Wzy8K4JAwHRfuviegskBz6Kkbep0OY
 

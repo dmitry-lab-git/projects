@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict la5yjilo0fmimVgOsZOvqSjbArh5Mw1WiIBbGwAEuMbY4qJT5D0njGR2LLCv7hR
+\restrict aRIxXNfRhdrmrQMlOySuqHMCLPMX1P0aU23mqg6VMMO9zCa6PsbciT3YfRohILr
 
 -- Dumped from database version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
 -- Dumped by pg_dump version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
@@ -90,8 +90,15 @@ CREATE INDEX idx_tools_inv_type_name ON texere.tools_inventory USING btree (tool
 
 
 --
+-- Name: TABLE tools_inventory; Type: ACL; Schema: texere; Owner: -
+--
+
+GRANT SELECT ON TABLE texere.tools_inventory TO reflex_app_user;
+
+
+--
 -- PostgreSQL database dump complete
 --
 
-\unrestrict la5yjilo0fmimVgOsZOvqSjbArh5Mw1WiIBbGwAEuMbY4qJT5D0njGR2LLCv7hR
+\unrestrict aRIxXNfRhdrmrQMlOySuqHMCLPMX1P0aU23mqg6VMMO9zCa6PsbciT3YfRohILr
 

@@ -1,6 +1,6 @@
 # Ledger — История версионирования
 
-> Источник истины: development.versions + development.version_updates • Автообновляется через dump.sh — 2026-10-25_14-24
+> Источник истины: development.versions + development.version_updates • Автообновляется через dump.sh — 2026-11-12_12-45
 
 ## Эпохи (VER)
 
@@ -181,6 +181,34 @@
   Адаптация Reflex PWA интерфейса под архитектурные изменения. Реализована возможность внесения данных в staging_transactions через интерфейс, а также внедрена поддержка шаблонов транзакций (transaction_templates) с полным переводом на UUID-архитектуру и привязкой к словарям.
   Файлы: app: Reflex PWA, table: processing.transaction_templates, table: audit.staging_transactions
 
+* **UVR-040 — 2026-10-25 — Cloud Redundancy Safeguard & Recovery Validation**
+  Validation of the cloud backup redundancy circuit effectiveness. Automated CRON archiving jobs with replication to Google Drive prevented data loss during two accidental deletions of core and Ledger folders executed during AI-assisted commands. The incident confirmed fault tolerance of the architecture and the critical role of the isolated long-term /Archive storage.
+  Файлы: script: archive_untouchable.sh, script: clean_and_rotate.sh, script: make_dump.sh, script: make_dump_household.sh, script: make_dump_git.sh, file: schedule.conf, service: crontab, target: Google Drive, path: core, path: Ledger, path: /Archive
+
+* **UVR-041 — 2026-10-25 — Git Storage Optimization & Bundle Cleanup**
+  Repository fully cleaned from bundle artifacts. After restoring features via bundle_local remote, .git size grew to 53 MB due to fetched pack objects containing photos and binaries from bundle history. Performed git remote remove bundle_local, removed temp directories /tmp/bundle_check and bundle file e4b360c, executed git gc --prune=now --aggressive. As result .git size reduced from 53 MB to 2.2 MB (size-pack 1.88 MiB, in-pack 1650, count 0). Master state fixed at commit 22ba2d1 fix: clean dict_statuses and enforce positive transaction code after UUID migration, without 7 restored templates from bundle.
+  Файлы: path: ~/Projects/.git, remote: bundle_local, file: /tmp/bundle_check, file: bundle-e4b360c, commit: 22ba2d1, command: git gc --prune=now --aggressive, command: git count-objects -vH, table: development.version_updates, trigger: trg_version_updates_insert, function: development.fn_auto_generate_uvr()
+
+* **UVR-042 — 2026-10-31 — PWA Metrics Cron & UI Restructure Live Sync**
+  Comprehensive refactoring of PWA module and metrics system: implemented new cron job metrics_updater.py for automated collection and updating of metrics in pwa_metrics.json with last-run tracking via .pwa_metrics_last_run. Restructured UI assets in digital_living_room: moved images to src/, separated script.js and styles.css into standalone modules, created system_report_data.json as dashboard data source. Configured live sync with Fujitsu DESKTOP-7AES8J8 server over SSH for auto-deployment, added GitHub Actions workflow for deployment from digital_living_room folder. Cleaned git history from intermediate update digital_living_room commits using reset --soft method while preserving all Auto-update metrics data.
+  Файлы: Ledger/pwa/src/services/cron/jobs/metrics_updater.py, Ledger/pwa/assets/pwa_metrics.json, Ledger/pwa/.pwa_metrics_last_run, digital_living_room/script.js, digital_living_room/styles.css, digital_living_room/system_report_data.json, digital_living_room/src/, .github/workflows/deploy.yml, crontab, Fujitsu DESKTOP-7AES8J8 ~/Projects SSH sync
+
+* **UVR-043 — 2026-11-06 — Event Sourcing Subsystem & iPad Stock Sync**
+  Migrated the gardening subsystem to a pure Event Sourcing architecture. Refactored the core flower register by removing static state attributes and delegating all lifecycle transitions, plant statuses, and location tracking to the event log. Upgraded the event log schema to support UUID-based identification and timestamptz for time zone synchronization. Transitioned the event tracking payload from flat string format to a flexible JSONB metadata structure. Performed a complete physical inventory reconciliation of available boxes directly via the iPad interface, introduced a strict automated disposal rule for single-use peat pots, and established a 3-tier container classification system (seedling, transplant, permanent). Synchronized data anomalies and updated the analytical dashboard views to compute all metrics dynamically from the historical event stream.
+  Файлы: schema: gardening, table: gardening.flower_register, table: gardening.events_register, table: gardening.box_register, view: gardening.garden_state_report, view: gardening.v_gardening_dashboard, interface: iPad
+
+* **UVR-044 — 2026-11-06 — Physical Archive Discovery & Origin Validation**
+  Physical archive discovered — handwritten ledger of the first 429 financial registry entries maintained manually with pen. Validated as the primary source (UVR-000) for Legacy Ledger Structure (UVR-001). Physical media cross-checked against digital export LedgerExportFromiPad4/Raw Data and ETL pipeline 1-1728. Chain integrity 429 -> 1756 -> 2000+ confirmed. Archive promoted to Origin Archive status for long-term retention and placed under the same fault-tolerance circuit validated in UVR-040.
+  Файлы: path: \PaperArchive\HandwrittenLedger\429_pages, table: public.transactions (codes 1-429), table: development.version_updates, file: wa_image_3069675735365870267, archive_target: /Archive/Origin, path: \LedgerExportFromiPad4\Raw Data, script: etl_process.py, target: Google Drive
+
+* **UVR-045 — 2026-11-11 — Receipt Loss Incident & DB Blob Archiving Policy**
+  Recorded incident of losing ~149 original receipt files during Git migration and cleanup due to over-reliance on AI-generated code and reduced supervision (an accepted operational risk of delegation). Indexed JSON duplicates and transaction records remain intact in the database. Established preventive architecture: binary documents are permanently decoupled from Git tracking, scheduled for regular indexing, and archived into PostgreSQL as compressed BLOBs after a 30-day retention window.
+  Файлы: folder: Ledger/raw_data_ipad/docs/, workflow: Git repository cleanup, table: development.version_updates, database: PostgreSQL BLOB storage
+
+* **UVR-046 — 2026-11-11 — Doc Ingress Hub, BLOB Registry & AI Triage Router**
+  Implemented centralized document ingestion gateway (core/doc_ingress_hub) decoupled from domain parsers. Configured SHA-256 deduplication, Pillow image compression into a 1-to-1 PostgreSQL BLOB registry (processing.source_file_blobs with ON DELETE RESTRICT), 90-day local retention buffer with protected Important directory handling, and two-stage Gemini AI triage routing (RECEIPT records dispatched to receipts_processor via READY_TO_SEND). Provisioned least-privilege DB role data_ingress_worker, live access registry view (development.v_db_access_registry), updated status dictionary (INGESTED, CLASSIFIED, UNKNOWN, DELETED), and added anti-loop safeguards across pipelines.
+  Файлы: module: core/doc_ingress_hub (config.py, compressor.py, ingestor.py, classifier.py, janitor.py, pipeline.py, prompts/triage.txt, README.md), module: core/receipts_processor/pipeline.py, module: core/api_manager (api_utils/media_manager.py, README.md), tables: processing.source_file_blobs, processing.source_files, dicts.dict_statuses, development.role_metadata, view: development.v_db_access_registry, role: data_ingress_worker, folders: /mnt/c/Personal/Projects/Ingress, /mnt/c/Personal/Projects/Archive_Buffer, secure_folder/data_ingress/.env
+
 
 ---
-_Last sync: 2026-10-25_14-24 — 4 versions, 39 updates_
+_Last sync: 2026-11-12_12-45 — 4 versions, 46 updates_

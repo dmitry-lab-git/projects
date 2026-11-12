@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict eUcX7VEtiTdbP8sVUzNGENzzd0edNbaCAJ2RAPxYgiF5JpOlDVBgk500MgXFUL1
+\restrict pGSWsVFz423SAUfgcaPTWQkmJ5GS9DyftokAuCb9yhuziZD4ok3JIqHqoVAJUDp
 
 -- Dumped from database version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
 -- Dumped by pg_dump version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
@@ -31,15 +31,15 @@ CREATE TABLE processing.transaction_templates (
     id uuid DEFAULT gen_random_uuid() CONSTRAINT transaction_templates_id_not_null1 NOT NULL,
     transaction_name character varying(150) CONSTRAINT transaction_templates_transaction_name_not_null1 NOT NULL,
     amount numeric(15,2),
-    currency_id uuid,
+    currency_id uuid DEFAULT 'c1edc08f-a70a-4f89-aed4-8b547e7637f3'::uuid,
     type_id uuid,
     entity_id uuid,
     category_id uuid,
-    responsible_id uuid,
+    responsible_id uuid DEFAULT 'd461b979-31b1-46d5-a1fd-e2165a693902'::uuid,
     contragent_from_id uuid,
     contragent_to_id uuid,
     account_id uuid,
-    status_id uuid CONSTRAINT transaction_templates_status_id_not_null1 NOT NULL,
+    status_id uuid DEFAULT '63c67651-152d-4b3f-a33d-89d2958b88ba'::uuid CONSTRAINT transaction_templates_status_id_not_null1 NOT NULL,
     created_at timestamp(6) with time zone DEFAULT CURRENT_TIMESTAMP CONSTRAINT transaction_templates_created_at_not_null1 NOT NULL
 );
 
@@ -151,11 +151,13 @@ ALTER TABLE ONLY processing.transaction_templates
 
 GRANT ALL ON TABLE processing.transaction_templates TO reflex_app_user;
 GRANT ALL ON TABLE processing.transaction_templates TO receipt_processor_svc;
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE processing.transaction_templates TO data_ingress_worker;
+GRANT SELECT ON TABLE processing.transaction_templates TO pwa_workers_inspector;
 
 
 --
 -- PostgreSQL database dump complete
 --
 
-\unrestrict eUcX7VEtiTdbP8sVUzNGENzzd0edNbaCAJ2RAPxYgiF5JpOlDVBgk500MgXFUL1
+\unrestrict pGSWsVFz423SAUfgcaPTWQkmJ5GS9DyftokAuCb9yhuziZD4ok3JIqHqoVAJUDp
 

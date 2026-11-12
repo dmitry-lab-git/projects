@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict hLIcnqPwa52juaQhHewnhF6irigMsZx5FtJkSxjWJoyhHMqY3uBbqaQqkpE6ohN
+\restrict gSIbSOJgr37fGTaSKrB39lC2yEdA4jzKbNWdJy7aKTiv5cbNaba0dGifaZxNuJi
 
 -- Dumped from database version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
 -- Dumped by pg_dump version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
@@ -89,5 +89,5 @@ GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.posting_rules TO antigravity;
 -- PostgreSQL database dump complete
 --
 
-\unrestrict hLIcnqPwa52juaQhHewnhF6irigMsZx5FtJkSxjWJoyhHMqY3uBbqaQqkpE6ohN
+\unrestrict gSIbSOJgr37fGTaSKrB39lC2yEdA4jzKbNWdJy7aKTiv5cbNaba0dGifaZxNuJi
 

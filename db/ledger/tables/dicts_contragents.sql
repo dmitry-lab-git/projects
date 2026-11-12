@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict mYNXdUukl0dEBtf9UnxIK3WkF0FckbwE8s5oIsfVOsDXL7nh9g6zMOLQJfZjurD
+\restrict PYWcnd3FdSIZeNZfKFOd8bvqElTIDA7pfA9AxAHp6rnLSaWwmEI17hCmaQMgUdU
 
 -- Dumped from database version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
 -- Dumped by pg_dump version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
@@ -30,12 +30,11 @@ SET default_table_access_method = heap;
 CREATE TABLE dicts.contragents (
     code integer CONSTRAINT dict_contragent_seq_not_null NOT NULL,
     contragent_name character varying(50),
-    contragent_id character varying(50),
+    contragent_id character varying(50) NOT NULL,
     contragent_type character varying(50),
     description character varying(512),
     id uuid DEFAULT gen_random_uuid() CONSTRAINT contragent_register_id_not_null NOT NULL,
     address_id uuid,
-    keywords text[],
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
     status_id uuid NOT NULL,
     merchant_id uuid,
@@ -63,13 +62,6 @@ ALTER SEQUENCE dicts.dict_contragent_seq_seq OWNED BY dicts.contragents.code;
 
 
 --
--- Name: contragents code; Type: DEFAULT; Schema: dicts; Owner: -
---
-
-ALTER TABLE ONLY dicts.contragents ALTER COLUMN code SET DEFAULT nextval('dicts.dict_contragent_seq_seq'::regclass);
-
-
---
 -- Name: contragents contragents_code_unique; Type: CONSTRAINT; Schema: dicts; Owner: -
 --
 
@@ -93,6 +85,13 @@ CREATE INDEX idx_contragents_merchant ON dicts.contragents USING btree (merchant
 
 
 --
+-- Name: contragents trg_contragents_autocomplete; Type: TRIGGER; Schema: dicts; Owner: -
+--
+
+CREATE TRIGGER trg_contragents_autocomplete BEFORE INSERT ON dicts.contragents FOR EACH ROW EXECUTE FUNCTION dicts.trg_bi_contragents_autocomplete();
+
+
+--
 -- Name: contragents contragents_merchant_id_fkey; Type: FK CONSTRAINT; Schema: dicts; Owner: -
 --
 
@@ -109,11 +108,29 @@ ALTER TABLE ONLY dicts.contragents
 
 
 --
+-- Name: contragents fk_contragents_address; Type: FK CONSTRAINT; Schema: dicts; Owner: -
+--
+
+ALTER TABLE ONLY dicts.contragents
+    ADD CONSTRAINT fk_contragents_address FOREIGN KEY (address_id) REFERENCES dicts.addresses(id);
+
+
+--
+-- Name: contragents fk_contragents_status; Type: FK CONSTRAINT; Schema: dicts; Owner: -
+--
+
+ALTER TABLE ONLY dicts.contragents
+    ADD CONSTRAINT fk_contragents_status FOREIGN KEY (status_id) REFERENCES dicts.dict_statuses(id);
+
+
+--
 -- Name: TABLE contragents; Type: ACL; Schema: dicts; Owner: -
 --
 
 GRANT SELECT ON TABLE dicts.contragents TO receipt_processor_svc;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE dicts.contragents TO reflex_app_user;
+GRANT SELECT ON TABLE dicts.contragents TO data_ingress_worker;
+GRANT SELECT ON TABLE dicts.contragents TO pwa_workers_inspector;
 
 
 --
@@ -128,5 +145,5 @@ GRANT SELECT,USAGE ON SEQUENCE dicts.dict_contragent_seq_seq TO reflex_app_user;
 -- PostgreSQL database dump complete
 --
 
-\unrestrict mYNXdUukl0dEBtf9UnxIK3WkF0FckbwE8s5oIsfVOsDXL7nh9g6zMOLQJfZjurD
+\unrestrict PYWcnd3FdSIZeNZfKFOd8bvqElTIDA7pfA9AxAHp6rnLSaWwmEI17hCmaQMgUdU
 

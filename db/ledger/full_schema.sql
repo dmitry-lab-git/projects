@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict TNdp1IJ8LfVgD8uOzOzUWjZsoaTRRVNB4hXu4QTR6xd3pABjsbcomU5oWCcHrtw
+\restrict pO1IgNwQajiNcFuU0Z8GlglugjcQlrdTZpOsgIZ3X16WCmLr45zRIYqs4nXvSxN
 
 -- Dumped from database version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
 -- Dumped by pg_dump version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
@@ -209,6 +209,165 @@ $_$;
 
 
 --
+-- Name: assign_transaction_codes(); Type: FUNCTION; Schema: audit; Owner: -
+--
+
+CREATE FUNCTION audit.assign_transaction_codes() RETURNS text
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+    r RECORD;
+    start_code INT := 0;
+    current_code INT;
+    last_valid_id UUID;
+    error_count INT;
+BEGIN
+    -- 1. Динамически определяем стартовый код
+    SELECT MAX(code) INTO start_code FROM audit.staging_transactions;
+    
+    IF start_code IS NULL OR start_code = 0 THEN
+        SELECT COALESCE(MAX(code), 0) INTO start_code FROM public.transactions;
+    END IF;
+
+    current_code := start_code;
+
+    -- 2. Проверяем наличие невалидных (NULL) значений даты/времени
+    SELECT COUNT(*) INTO error_count 
+    FROM audit.staging_transactions 
+    WHERE code IS NULL AND (operation_date IS NULL OR operation_time IS NULL);
+
+    IF error_count > 0 THEN
+        RAISE NOTICE 'ОШИБКА: Найдено транзакций без заполненной даты или времени: %', error_count;
+        
+        FOR r IN (
+            SELECT id, transaction_name, operation_date, operation_time 
+            FROM audit.staging_transactions 
+            WHERE code IS NULL AND (operation_date IS NULL OR operation_time IS NULL)
+            LIMIT 10
+        ) LOOP
+            RAISE NOTICE 'Требует проверки -> ID: %, Название: %, Дата: %, Время: %', 
+                r.id, COALESCE(r.transaction_name, '[Без названия]'), r.operation_date, r.operation_time;
+        END LOOP;
+        
+        RAISE EXCEPTION 'Вычисление прервано. Невозможно определить хронологический порядок для неразмеченных строк.';
+    END IF;
+
+    -- 3. Присвоение последовательных кодов для новых строк (code IS NULL)
+    FOR r IN 
+        SELECT id 
+        FROM audit.staging_transactions
+        WHERE code IS NULL
+        ORDER BY operation_date ASC, operation_time ASC, created_at ASC, id ASC
+    LOOP
+        current_code := current_code + 1;
+        
+        UPDATE audit.staging_transactions
+        SET code = current_code
+        WHERE id = r.id;
+        
+        last_valid_id := r.id;
+    END LOOP;
+
+    -- 4. Результат
+    IF current_code = start_code THEN
+        RETURN 'Все транзакции уже имеют коды. Новых записей для нумерации не обнаружено.';
+    ELSE
+        RETURN 'Успех. Новые транзакции пронумерованы. Стартовый код был: ' || start_code::TEXT || ', последний актуальный код: ' || current_code::TEXT;
+    END IF;
+
+EXCEPTION
+    WHEN OTHERS THEN
+        RAISE NOTICE 'Произошел runtime-сбой при обновлении строк.';
+        RAISE NOTICE 'Последний успешно обработанный ID транзакции: %', COALESCE(last_valid_id::text, 'нет');
+        RAISE NOTICE 'Последний рабочий код: %', current_code;
+        RAISE; -- Откатываем (ROLLBACK) изменения текущей сессии
+END;
+$$;
+
+
+--
+-- Name: get_unposted_transactions(); Type: FUNCTION; Schema: audit; Owner: -
+--
+
+CREATE FUNCTION audit.get_unposted_transactions() RETURNS TABLE(id uuid, code integer, transaction_name character varying, operation_date date, operation_time time without time zone, amount numeric, current_status_code character varying, current_status_name character varying, category_name character varying, type_name character varying, contragent_from_name character varying, contragent_to_name character varying, account_name character varying, account_details character varying)
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    RETURN QUERY
+    SELECT 
+        st.id,
+        st.code,
+        st.transaction_name,
+        st.operation_date,
+        st.operation_time,
+        st.amount,
+        ds.code::varchar,
+        ds.name::varchar,
+        cat.category_name::varchar,
+        dt.type_name::varchar,
+        cf.contragent_name::varchar,
+        ct.contragent_name::varchar,
+        acc.account_name::varchar,
+        (COALESCE(e.entity_name, '') || ' (' || COALESCE(e.entity_id, '') || ' (' || COALESCE(acc.account_id, '') || '))')::varchar AS account_details
+    FROM audit.staging_transactions st
+    LEFT JOIN dicts.dict_statuses ds ON st.status_id = ds.id
+    LEFT JOIN dicts.dict_categories cat ON st.category_id = cat.id
+    LEFT JOIN dicts.dict_types dt ON st.type_id = dt.id
+    LEFT JOIN dicts.contragents cf ON st.contragent_from_id = cf.id
+    LEFT JOIN dicts.contragents ct ON st.contragent_to_id = ct.id
+    LEFT JOIN dicts.accounts acc ON st.account_id = acc.id
+    LEFT JOIN dicts.entities e ON acc.entity_id::text = e.id::text OR acc.entity_id = e.entity_id
+    WHERE st.status_id IS NULL 
+       OR NOT (ds.entity_type = 'TRANSACTION' AND ds.code = 'POSTED')
+    ORDER BY 
+        st.code ASC NULLS LAST, 
+        st.operation_date DESC NULLS LAST, 
+        st.operation_time DESC NULLS LAST;
+END;
+$$;
+
+
+--
+-- Name: mass_review_transactions(); Type: FUNCTION; Schema: audit; Owner: -
+--
+
+CREATE FUNCTION audit.mass_review_transactions() RETURNS text
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+    target_status_id UUID;
+    posted_status_id UUID;
+    updated_rows INT;
+BEGIN
+    -- 1. Находим UUID для статуса REVIEWED по правильной колонке code
+    SELECT id INTO target_status_id 
+    FROM dicts.dict_statuses 
+    WHERE entity_type = 'TRANSACTION' AND code = 'REVIEWED';
+
+    -- 2. Находим UUID для статуса POSTED, чтобы случайно не затереть его
+    SELECT id INTO posted_status_id 
+    FROM dicts.dict_statuses 
+    WHERE entity_type = 'TRANSACTION' AND code = 'POSTED';
+
+    -- Защитная проверка
+    IF target_status_id IS NULL THEN
+        RAISE EXCEPTION 'Критическая ошибка: Статус TRANSACTION/REVIEWED не найден в справочнике статусов!';
+    END IF;
+
+    -- 3. Обновляем транзакции в staging: исключаем POSTED и те, что уже REVIEWED
+    UPDATE audit.staging_transactions
+    SET status_id = target_status_id
+    WHERE (status_id IS DISTINCT FROM posted_status_id)
+      AND (status_id IS DISTINCT FROM target_status_id);
+
+    GET DIAGNOSTICS updated_rows = ROW_COUNT;
+
+    RETURN 'Успех. Переведено в статус REVIEWED (Утверждено оператором) транзакций: ' || updated_rows::TEXT;
+END;
+$$;
+
+
+--
 -- Name: post_reviewed_transactions(); Type: FUNCTION; Schema: audit; Owner: -
 --
 
@@ -288,6 +447,34 @@ EXCEPTION WHEN OTHERS THEN
     END;
 
     RAISE EXCEPTION 'Сбой post_reviewed_transactions [SQLSTATE %]: %', v_state, error_msg;
+END;
+$$;
+
+
+--
+-- Name: rollback_assigned_codes(); Type: FUNCTION; Schema: audit; Owner: -
+--
+
+CREATE FUNCTION audit.rollback_assigned_codes() RETURNS text
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+    posted_status_id UUID;
+    cleared_rows INT;
+BEGIN
+    -- Находим ID статуса POSTED, чтобы ни в коем случае не стереть коды у архивных/проведенных строк
+    SELECT id INTO posted_status_id 
+    FROM dicts.dict_statuses 
+    WHERE entity_type = 'TRANSACTION' AND code = 'POSTED';
+
+    -- Сбрасываем коды обратно в NULL для всех непроведенных строк
+    UPDATE audit.staging_transactions
+    SET code = NULL
+    WHERE status_id IS DISTINCT FROM posted_status_id;
+
+    GET DIAGNOSTICS cleared_rows = ROW_COUNT;
+
+    RETURN 'Откат завершен. Сброшены коды у ' || cleared_rows::TEXT || ' транзакций.';
 END;
 $$;
 
@@ -417,18 +604,15 @@ $$;
 CREATE FUNCTION development.fn_auto_generate_uvr() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
+DECLARE
+  v_max int;
 BEGIN
-    -- Если код не передан, берем следующий из последовательности
-    IF NEW.code IS NULL THEN
-        NEW.code := nextval('development.version_updates_code_seq');
-    END IF;
-
-    -- Автоматически генерируем update_version_id (например, UVR-039, UVR-040), если он пустой
-    IF NEW.update_version_id IS NULL OR NEW.update_version_id = '' THEN
-        NEW.update_version_id := 'UVR-' || LPAD(NEW.code::text, 3, '0');
-    END IF;
-
-    RETURN NEW;
+  SELECT COALESCE(MAX(code), 0) INTO v_max FROM development.version_updates;
+  NEW.code := v_max + 1;
+  NEW.update_version_id := 'UVR-' || LPAD(NEW.code::text, 3, '0');
+  NEW.created_at := COALESCE(NEW.created_at, CURRENT_TIMESTAMP);
+  PERFORM setval('development.version_updates_code_seq', NEW.code + 1, false);
+  RETURN NEW;
 END;
 $$;
 
@@ -451,6 +635,181 @@ BEGIN
     END IF;
     
     -- Возвращаем обновленную запись для вставки
+    RETURN NEW;
+END;
+$$;
+
+
+--
+-- Name: trg_bi_addresses_autocomplete(); Type: FUNCTION; Schema: dicts; Owner: -
+--
+
+CREATE FUNCTION dicts.trg_bi_addresses_autocomplete() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+    next_code int4;
+BEGIN
+    -------------------------------------------------------------------------
+    -- ЭТАП 1: Строгая валидация address_name по регламенту
+    -------------------------------------------------------------------------
+    
+    -- Очищаем от случайных двойных пробелов и скрытых символов
+    NEW.address_name := regexp_replace(trim(NEW.address_name), '\s+', ' ', 'g');
+
+    -- Правило 1: Проверка на правильное начало (строчные ул., пр., пер., мкр.)
+    IF NEW.address_name NOT SIMILAR TO '(ул\.|пр\.|пер\.|мкр\.) %' THEN
+        RAISE EXCEPTION 'Нарушен регламент адреса: строка должна начинаться с сокращений "ул. ", "пр. ", "пер. " или "мкр. " с маленькой буквы.';
+    END IF;
+
+    -- Правило 3 и 4: Обязательная запятая перед номером дома и запрет на слова "дом", "д."
+    IF regexp_like(NEW.address_name, ', (дом|д\.)') THEN
+        RAISE EXCEPTION 'Нарушен регламент адреса: исключите слово "дом" или "д.". После запятой должен идти сразу номер дома (например: ул. Мира, 50).';
+    END IF;
+
+    IF NOT regexp_like(NEW.address_name, ', [0-9]') THEN
+        RAISE EXCEPTION 'Нарушен регламент адреса: отсутствует запятая перед номером дома или сам номер дома не указан цифрой (например: ул. Катаева, 9).';
+    END IF;
+
+
+    -------------------------------------------------------------------------
+    -- ЭТАП 2: Расчет последовательного code без разрывов и автозаполнение
+    -------------------------------------------------------------------------
+    
+    -- Блокируем строки таблицы и высчитываем честный следующий code
+    SELECT COALESCE(MAX(code), 0) + 1 INTO next_code FROM dicts.addresses;
+    NEW.code := next_code;
+
+    -- Автозаполнение системного ID (ADR-113)
+    IF NEW.address_id IS NULL OR NEW.address_id = '' THEN
+        NEW.address_id := 'ADR-' || NEW.code;
+    END IF;
+
+    -- Автозаполнение статуса
+    IF NEW.external_status IS NULL OR NEW.external_status = '' THEN
+        NEW.external_status := 'Active';
+    END IF;
+
+    -- Форматирование даты в ДД.ММ.ГГ
+    IF NEW.observed_at IS NULL OR NEW.observed_at = '' THEN
+        NEW.observed_at := to_char(COALESCE(NEW.created_at, CURRENT_TIMESTAMP), 'DD.MM.YY');
+    END IF;
+
+    -- Дефолты по географии
+    IF NEW.city IS NULL OR NEW.city = '' THEN
+        NEW.city := 'Павлодар';
+    END IF;
+
+    IF NEW.country IS NULL OR NEW.country = '' THEN
+        NEW.country := 'Казахстан';
+    END IF;
+
+    RETURN NEW;
+END;
+$$;
+
+
+--
+-- Name: trg_bi_contragents_autocomplete(); Type: FUNCTION; Schema: dicts; Owner: -
+--
+
+CREATE FUNCTION dicts.trg_bi_contragents_autocomplete() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+    next_code int4;
+BEGIN
+    -------------------------------------------------------------------------
+    -- ЭТАП 1: Расчет последовательного code без разрывов
+    -------------------------------------------------------------------------
+    
+    -- Блокируем строки таблицы для вычисления честного последовательного номера
+    SELECT COALESCE(MAX(code), 0) + 1 INTO next_code FROM dicts.contragents;
+    
+    -- Принудительно перезаписываем code, защищая от ручной передачи некорректного значения
+    NEW.code := next_code;
+
+    -------------------------------------------------------------------------
+    -- ЭТАП 2: Автозаполнение связанных текстовых и системных полей
+    -------------------------------------------------------------------------
+    
+    -- Автозаполнение текстового идентификатора по шаблону CNT-X
+    IF NEW.contragent_id IS NULL OR NEW.contragent_id = '' THEN
+        NEW.contragent_id := 'CNT-' || NEW.code;
+    END IF;
+
+    -- Проверка дефолтного типа контрагента, если не выбран на форме
+    IF NEW.contragent_type IS NULL OR NEW.contragent_type = '' THEN
+        NEW.contragent_type := 'Физическое лицо';
+    END IF;
+
+    -- Защита полей от случайных пробелов
+    NEW.contragent_name := trim(NEW.contragent_name);
+
+    RETURN NEW;
+END;
+$$;
+
+
+--
+-- Name: trg_bi_dict_categories_autocomplete(); Type: FUNCTION; Schema: dicts; Owner: -
+--
+
+CREATE FUNCTION dicts.trg_bi_dict_categories_autocomplete() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+    next_code int4;
+BEGIN
+    -------------------------------------------------------------------------
+    -- ЭТАП 1: Расчет последовательного code без разрывов
+    -------------------------------------------------------------------------
+    SELECT COALESCE(MAX(code), 0) + 1 INTO next_code FROM dicts.dict_categories;
+    NEW.code := next_code;
+
+    -------------------------------------------------------------------------
+    -- ЭТАП 2: Автозаполнение текстовых и системных полей
+    -------------------------------------------------------------------------
+    -- Автозаполнение идентификатора по шаблону CAT-X
+    IF NEW.category_id IS NULL OR NEW.category_id = '' THEN
+        NEW.category_id := 'CAT-' || NEW.code;
+    END IF;
+
+    -- Защита от лишних пробелов в наименовании
+    NEW.category_name := trim(NEW.category_name);
+
+    RETURN NEW;
+END;
+$$;
+
+
+--
+-- Name: trg_bi_entities_autocomplete(); Type: FUNCTION; Schema: dicts; Owner: -
+--
+
+CREATE FUNCTION dicts.trg_bi_entities_autocomplete() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+    next_code int4;
+BEGIN
+    -------------------------------------------------------------------------
+    -- ЭТАП 1: Расчет последовательного code без разрывов
+    -------------------------------------------------------------------------
+    SELECT COALESCE(MAX(code), 0) + 1 INTO next_code FROM dicts.entities;
+    NEW.code := next_code;
+
+    -------------------------------------------------------------------------
+    -- ЭТАП 2: Автозаполнение текстовых и системных полей
+    -------------------------------------------------------------------------
+    -- Автозаполнение идентификатора по шаблону ENT-X
+    IF NEW.entity_id IS NULL OR NEW.entity_id = '' THEN
+        NEW.entity_id := 'ENT-' || NEW.code;
+    END IF;
+
+    -- Защита от лишних пробелов в наименовании
+    NEW.entity_name := trim(NEW.entity_name);
+
     RETURN NEW;
 END;
 $$;
@@ -1126,6 +1485,96 @@ $$;
 
 
 --
+-- Name: log_system_verification(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.log_system_verification() RETURNS text
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+    v_total_count INTEGER;
+    v_verified_count INTEGER;
+    v_total_balance_sum NUMERIC(19, 4);
+    v_verified_ids UUID[]; 
+    v_last_transaction_id UUID;
+    v_status_id UUID;
+    v_verification_hash VARCHAR(64);
+    v_rows_affected INTEGER;
+BEGIN
+    -- 1. Находим ID последней актуальной транзакции на текущий момент
+    SELECT id INTO v_last_transaction_id
+    FROM public.transactions
+    ORDER BY created_at DESC
+    LIMIT 1;
+
+    -- 2. Собираем показатели из уже сформированного отчета
+    SELECT 
+        COUNT(*),
+        COUNT(*) FILTER (WHERE r.account_balance_status = 'verified'),
+        COALESCE(SUM(r.balance) FILTER (WHERE r.account_balance_status = 'verified'), 0),
+        ARRAY_AGG(a.id ORDER BY a.id) FILTER (WHERE r.account_balance_status = 'verified'),
+        md5(ARRAY_TO_STRING(ARRAY_AGG(a.id::text || ':' || r.balance::text ORDER BY a.id) FILTER (WHERE r.account_balance_status = 'verified'), ','))
+    INTO 
+        v_total_count, 
+        v_verified_count,
+        v_total_balance_sum,
+        v_verified_ids,
+        v_verification_hash
+    FROM reports.account_state_report r
+    LEFT JOIN dicts.accounts a ON r.account_id = a.account_id;
+
+    -- 3. Проверка жесткого условия
+    IF v_total_count > 0 AND v_total_count = v_verified_count THEN
+        
+        SELECT id INTO v_status_id 
+        FROM dicts.dict_statuses 
+        WHERE entity_type = 'SYSTEM_VERIFICATION' AND code = 'SUCCESS';
+
+        IF v_status_id IS NULL THEN
+            INSERT INTO dicts.dict_statuses (entity_type, code, name)
+            VALUES ('SYSTEM_VERIFICATION', 'SUCCESS', 'All accounts verified')
+            RETURNING id INTO v_status_id;
+        END IF;
+
+        -- Пытаемся записать лог
+        INSERT INTO reports.system_verification_log (
+            status_id,
+            total_accounts_processed, 
+            verified_count, 
+            total_balance_sum,
+            verified_account_ids,
+            last_transaction_id,
+            verification_hash
+        )
+        VALUES (
+            v_status_id,
+            v_total_count, 
+            v_verified_count, 
+            v_total_balance_sum,
+            COALESCE(v_verified_ids, '{}'::UUID[]),
+            v_last_transaction_id,
+            v_verification_hash
+        )
+        ON CONFLICT (verification_hash) DO NOTHING;
+
+        -- Проверяем, вставилась ли реальная новая строка
+        GET DIAGNOSTICS v_rows_affected = ROW_COUNT;
+
+        IF v_rows_affected > 0 THEN
+            RETURN 'All accounts verified, log registered';
+        ELSE
+            RETURN 'All accounts verified, but no changes detected (duplicate skipped)';
+        END IF;
+        
+    ELSE
+        RETURN 'Not all accounts are verified';
+    END IF;
+
+END;
+$$;
+
+
+--
 -- Name: prevent_snapshot_modification(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -1198,7 +1647,7 @@ BEGIN
     -- 1. Очищаем старый отчет
     TRUNCATE TABLE reports.account_state_report;
 
-    -- 2. Генерируем новый отчет и вставляем данные (здесь account_id остается кодом для отчета)
+    -- 2. Генерируем новый отчет и вставляем данные
     INSERT INTO reports.account_state_report (
         account_id, 
         account_name, 
@@ -1244,7 +1693,7 @@ BEGIN
                 WHEN EXISTS (
                     SELECT 1 FROM public.ledger l 
                     WHERE l.account_id = acc.account_id 
-                    AND l.operation_date > CURRENT_DATE - INTERVAL '3 months'
+                      AND l.operation_date > CURRENT_DATE - INTERVAL '3 months'
                 ) OR ll.current_balance != 0 THEN 'active'
                 ELSE 'inactive'
             END as state,
@@ -1259,57 +1708,8 @@ BEGIN
     )
     SELECT * FROM combined;
 
-    -- 3. Снимаем показатели, вытаскивая оригинальные UUID счетов по их коду (account_id)
-    SELECT 
-        COUNT(*),
-        COUNT(*) FILTER (WHERE r.account_balance_status = 'verified'),
-        COALESCE(SUM(r.balance) FILTER (WHERE r.account_balance_status = 'verified'), 0),
-        -- Собираем массив реальных UUID из таблицы dicts.accounts
-        ARRAY_AGG(a.id ORDER BY a.id) FILTER (WHERE r.account_balance_status = 'verified'),
-        -- Хэш теперь тоже строится на основе стабильных UUID счетов и их балансов
-        md5(ARRAY_TO_STRING(ARRAY_AGG(a.id::text || ':' || r.balance::text ORDER BY a.id) FILTER (WHERE r.account_balance_status = 'verified'), ','))
-    INTO 
-        v_total_count, 
-        v_verified_count,
-        v_total_balance_sum,
-        v_verified_ids,
-        v_verification_hash
-    FROM reports.account_state_report r
-    LEFT JOIN dicts.accounts a ON r.account_id = a.account_id; -- Джойнимся для получения UUID (a.id)
-
-    -- 4. Проверяем условие на SUCCESS
-    IF v_total_count > 0 AND v_total_count = v_verified_count THEN
-        
-        SELECT id INTO v_status_id 
-        FROM dicts.dict_statuses 
-        WHERE entity_type = 'SYSTEM_VERIFICATION' AND code = 'SUCCESS';
-
-        IF v_status_id IS NULL THEN
-            INSERT INTO dicts.dict_statuses (entity_type, code, name)
-            VALUES ('SYSTEM_VERIFICATION', 'SUCCESS', 'Все счета верифицированы')
-            RETURNING id INTO v_status_id;
-        END IF;
-
-        -- Записываем лог
-        INSERT INTO reports.system_verification_log (
-            status_id,
-            total_accounts_processed, 
-            verified_count, 
-            total_balance_sum,
-            verified_account_ids,
-            verification_hash
-        )
-        VALUES (
-            v_status_id,
-            v_total_count, 
-            v_verified_count, 
-            v_total_balance_sum,
-            COALESCE(v_verified_ids, '{}'::UUID[]),
-            v_verification_hash
-        )
-        ON CONFLICT (verification_hash) DO NOTHING;
-        
-    END IF;
+    -- 3. Вызываем отдельную функцию логирования
+    PERFORM public.log_system_verification();
 
 END;
 $$;
@@ -1539,6 +1939,193 @@ BEGIN
     RETURN updated_count;
 END;
 $$;
+
+
+--
+-- Name: refresh_ledger_by_accounts(); Type: FUNCTION; Schema: reports; Owner: -
+--
+
+CREATE FUNCTION reports.refresh_ledger_by_accounts() RETURNS void
+    LANGUAGE plpgsql
+    AS $_$
+BEGIN
+    TRUNCATE TABLE reports.ledger_by_accounts;
+
+    INSERT INTO reports.ledger_by_accounts (
+        transaction_id, 
+        account_id, 
+        account_balance, 
+        system_balance, 
+        transaction_name,
+        account_is_verified,
+        system_is_verified
+    )
+    WITH all_transactions AS (
+        SELECT DISTINCT 
+            tr.code as transaction_id, 
+            tr.transaction_name
+        FROM public.transactions tr
+    ),
+    all_accounts AS (
+        SELECT DISTINCT 
+            acc.account_id
+        FROM dicts.accounts acc
+    ),
+    -- Матрица: каждая транзакция со всеми уникальными счетами системы
+    grid AS (
+        SELECT 
+            t.transaction_id, 
+            t.transaction_name, 
+            a.account_id
+        FROM all_transactions t
+        CROSS JOIN all_accounts a
+    ),
+    -- Снэпшоты из регистра (для транзакций >= 1363)
+    snapshot_mapping AS (
+        SELECT DISTINCT 
+            s.tr_id::integer as snapshot_tr_id,
+            s.account_id
+        FROM public.acc_balance_snapshot_register s
+        WHERE s.account_id IS NOT NULL 
+          AND s.tr_id ~ '^\d+$'
+    ),
+    -- Реальные движения и ревизии, строго привязанные к transactions.account_id
+    tx_events AS (
+        SELECT 
+            tr.code as transaction_id,
+            acc.account_id as account_id,
+            tr.amount * COALESCE(t.account_effect, 1) as delta,
+            -- Является ли транзакция ревизией ИМЕННО для этого счета по названию (< 1363)
+            CASE 
+                WHEN tr.code < 1363 AND tr.transaction_name ILIKE '%Ревизия%' THEN TRUE 
+                ELSE FALSE 
+            END as is_rev_name
+        FROM public.transactions tr
+        LEFT JOIN dicts.dict_types t ON tr.type_id = t.id
+        LEFT JOIN dicts.accounts acc ON tr.account_id = acc.id
+        WHERE tr.account_id IS NOT NULL
+    ),
+    -- Соединяем матрицу со счетами и транзакциями
+    combined AS (
+        SELECT 
+            g.transaction_id,
+            g.transaction_name,
+            g.account_id,
+            COALESCE(te.delta, 0) as delta,
+            COALESCE(te.is_rev_name, FALSE) as is_rev_name,
+            CASE WHEN sm.snapshot_tr_id IS NOT NULL THEN TRUE ELSE FALSE END as has_snapshot
+        FROM grid g
+        LEFT JOIN tx_events te 
+            ON g.transaction_id = te.transaction_id 
+           AND g.account_id = te.account_id
+        LEFT JOIN snapshot_mapping sm
+            ON g.transaction_id = sm.snapshot_tr_id
+           AND g.account_id = sm.account_id
+    ),
+    -- События верификации и движений применительно к конкретному счету в сетке
+    events AS (
+        SELECT 
+            transaction_id,
+            transaction_name,
+            account_id,
+            delta,
+            -- Событие верификации для данного счета
+            CASE 
+                WHEN (transaction_id < 1363 AND is_rev_name) OR (transaction_id >= 1363 AND has_snapshot) THEN TRUE 
+                ELSE FALSE 
+            END as is_verification_event,
+            -- Обычное движение баланса (дельта не 0 и не событие верификации)
+            CASE 
+                WHEN delta <> 0 AND NOT ((transaction_id < 1363 AND is_rev_name) OR (transaction_id >= 1363 AND has_snapshot)) THEN TRUE 
+                ELSE FALSE 
+            END as is_movement_event
+        FROM combined
+    ),
+    -- Накопительные итоги и маркеры
+    running_accounts AS (
+        SELECT 
+            transaction_id,
+            transaction_name,
+            account_id,
+            delta,
+            SUM(delta) OVER (
+                PARTITION BY account_id 
+                ORDER BY transaction_id 
+                ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+            ) as account_balance,
+            -- Последняя точка верификации для счета (по умолчанию 0, т.к. с 1 транзакции все верифицированы)
+            COALESCE(
+                MAX(CASE WHEN is_verification_event THEN transaction_id END) OVER (
+                    PARTITION BY account_id 
+                    ORDER BY transaction_id 
+                    ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+                ), 0
+            ) as max_verif_tr,
+            -- Последнее движение баланса для счета
+            COALESCE(
+                MAX(CASE WHEN is_movement_event THEN transaction_id END) OVER (
+                    PARTITION BY account_id 
+                    ORDER BY transaction_id 
+                    ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+                ), -1
+            ) as max_mov_tr
+        FROM events
+    ),
+    -- Статус верификации конкретного счета
+    verified_status AS (
+        SELECT 
+            transaction_id,
+            transaction_name,
+            account_id,
+            account_balance,
+            CASE 
+                WHEN transaction_id < 1363 THEN (max_verif_tr >= max_mov_tr)
+                ELSE (max_verif_tr > 0)
+            END as account_is_verified
+        FROM running_accounts
+    ),
+    -- Системный статус верификации (TRUE, если все счета верифицированы)
+    system_verification AS (
+        SELECT 
+            transaction_id,
+            transaction_name,
+            account_id,
+            account_balance,
+            account_is_verified,
+            BOOL_AND(account_is_verified) OVER (PARTITION BY transaction_id) as system_is_verified
+        FROM verified_status
+    ),
+    -- Накопительный системный баланс
+    running_system AS (
+        SELECT 
+            transaction_id,
+            SUM(delta) OVER (
+                ORDER BY transaction_id 
+                ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+            ) as system_balance
+        FROM (
+            SELECT transaction_id, SUM(delta) as delta
+            FROM combined
+            GROUP BY transaction_id
+        ) t_totals
+    )
+    SELECT 
+        sv.transaction_id,
+        sv.account_id,
+        sv.account_balance,
+        rs.system_balance,
+        sv.transaction_name,
+        sv.account_is_verified,
+        sv.system_is_verified
+    FROM system_verification sv
+    JOIN running_system rs ON sv.transaction_id = rs.transaction_id
+    ORDER BY sv.transaction_id ASC, sv.account_id ASC;
+
+EXCEPTION
+    WHEN OTHERS THEN
+        RAISE;
+END;
+$_$;
 
 
 --
@@ -1832,7 +2419,8 @@ CREATE TABLE public.transactions (
     source_extraction_id uuid CONSTRAINT transactions_new_source_extraction_id_not_null NOT NULL,
     tx_hash character varying(64),
     created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP CONSTRAINT transactions_new_created_at_not_null NOT NULL,
-    status_id uuid NOT NULL
+    status_id uuid NOT NULL,
+    CONSTRAINT chk_transactions_code_natural CHECK ((code > 0))
 );
 
 
@@ -2024,20 +2612,20 @@ ALTER SEQUENCE audit.staging_audit_results_staging_id_seq OWNED BY audit.staging
 CREATE TABLE audit.staging_transactions (
     id uuid DEFAULT gen_random_uuid() CONSTRAINT staging_transactions_v1_1_id_not_null NOT NULL,
     source_extraction_id uuid CONSTRAINT staging_transactions_v1_1_source_extraction_id_not_null NOT NULL,
-    status_id uuid,
+    status_id uuid NOT NULL,
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
     transaction_name character varying(512),
-    entity_id uuid,
+    entity_id uuid NOT NULL,
     registration_date date,
     operation_date date,
-    category_id uuid,
-    responsible_id uuid,
-    contragent_from_id uuid,
-    contragent_to_id uuid,
-    account_id uuid,
-    type_id uuid,
+    category_id uuid NOT NULL,
+    responsible_id uuid NOT NULL,
+    contragent_from_id uuid NOT NULL,
+    contragent_to_id uuid NOT NULL,
+    account_id uuid NOT NULL,
+    type_id uuid NOT NULL,
     amount numeric(19,4),
-    currency_id uuid,
+    currency_id uuid NOT NULL,
     operation_time time without time zone,
     code integer
 );
@@ -2120,6 +2708,43 @@ CREATE VIEW audit.v_audit_diff AS
 
 
 --
+-- Name: workers_execution_log; Type: TABLE; Schema: audit; Owner: -
+--
+
+CREATE TABLE audit.workers_execution_log (
+    run_id uuid NOT NULL,
+    worker_id uuid NOT NULL,
+    trigger_source character varying(32) DEFAULT 'SCHEDULED'::character varying NOT NULL,
+    status character varying(20) NOT NULL,
+    started_at timestamp with time zone DEFAULT now() NOT NULL,
+    finished_at timestamp with time zone,
+    duration_ms integer GENERATED ALWAYS AS ((EXTRACT(epoch FROM (finished_at - started_at)) * (1000)::numeric)) STORED,
+    exit_code integer,
+    details jsonb DEFAULT '{}'::jsonb,
+    CONSTRAINT workers_execution_log_status_check CHECK (((status)::text = ANY ((ARRAY['RUNNING'::character varying, 'SUCCESS'::character varying, 'FAILED'::character varying, 'SKIPPED'::character varying])::text[])))
+);
+
+
+--
+-- Name: workers_registry; Type: TABLE; Schema: audit; Owner: -
+--
+
+CREATE TABLE audit.workers_registry (
+    worker_id uuid DEFAULT gen_random_uuid() NOT NULL,
+    worker_code character varying(64) NOT NULL,
+    title character varying(150) NOT NULL,
+    executor_type character varying(32) NOT NULL,
+    schedule_expr character varying(64),
+    script_path text NOT NULL,
+    max_silence_minutes integer DEFAULT 1500 NOT NULL,
+    is_active boolean DEFAULT true NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT workers_registry_executor_type_check CHECK (((executor_type)::text = ANY ((ARRAY['CRON'::character varying, 'APSCHEDULER'::character varying, 'MANUAL'::character varying])::text[])))
+);
+
+
+--
 -- Name: file_versions; Type: TABLE; Schema: development; Owner: -
 --
 
@@ -2133,6 +2758,21 @@ CREATE TABLE development.file_versions (
     previous_file_version_id character varying(50),
     description character varying(50),
     id uuid DEFAULT public.uuid_generate_v4()
+);
+
+
+--
+-- Name: role_metadata; Type: TABLE; Schema: development; Owner: -
+--
+
+CREATE TABLE development.role_metadata (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    role_oid oid NOT NULL,
+    role_name character varying(100) NOT NULL,
+    purpose text,
+    env_location text,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 
 
@@ -2174,6 +2814,34 @@ ALTER SEQUENCE development.support_tickets_id_seq OWNED BY development.support_t
 
 
 --
+-- Name: v_db_access_registry; Type: VIEW; Schema: development; Owner: -
+--
+
+CREATE VIEW development.v_db_access_registry AS
+ SELECT m.id AS role_uuid,
+    r.oid AS role_oid,
+    r.rolname AS role_name,
+    m.purpose,
+    m.env_location,
+    r.rolcanlogin AS can_login,
+    r.rolsuper AS is_superuser,
+    COALESCE(( SELECT array_agg(DISTINCT (g.table_schema)::text ORDER BY ((g.table_schema)::text)) AS array_agg
+           FROM information_schema.role_table_grants g
+          WHERE ((g.grantee)::name = r.rolname)), '{}'::text[]) AS granted_schemas,
+    COALESCE(( SELECT jsonb_object_agg(sub.tbl, sub.privs) AS jsonb_object_agg
+           FROM ( SELECT (((g.table_schema)::text || '.'::text) || (g.table_name)::text) AS tbl,
+                    array_agg((g.privilege_type)::text ORDER BY (g.privilege_type)::text) AS privs
+                   FROM information_schema.role_table_grants g
+                  WHERE ((g.grantee)::name = r.rolname)
+                  GROUP BY g.table_schema, g.table_name) sub), '{}'::jsonb) AS granted_tables,
+    r.rolvaliduntil AS valid_until
+   FROM (pg_roles r
+     LEFT JOIN development.role_metadata m ON ((m.role_oid = r.oid)))
+  WHERE (r.rolname !~~ 'pg_%'::text)
+  ORDER BY r.rolname;
+
+
+--
 -- Name: version_updates_code_seq; Type: SEQUENCE; Schema: development; Owner: -
 --
 
@@ -2190,14 +2858,15 @@ CREATE SEQUENCE development.version_updates_code_seq
 --
 
 CREATE TABLE development.version_updates (
-    code integer DEFAULT nextval('development.version_updates_code_seq'::regclass),
+    code integer DEFAULT nextval('development.version_updates_code_seq'::regclass) NOT NULL,
     update_version_name character varying(50),
     update_version_id character varying(50),
     version_id character varying(50),
     registration_date date NOT NULL,
     description text,
     affected_objects text,
-    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT version_updates_code_positive CHECK ((code > 0))
 );
 
 
@@ -2269,32 +2938,17 @@ CREATE TABLE dicts.addresses (
 
 
 --
--- Name: addresses_code_seq; Type: SEQUENCE; Schema: dicts; Owner: -
---
-
-ALTER TABLE dicts.addresses ALTER COLUMN code ADD GENERATED BY DEFAULT AS IDENTITY (
-    SEQUENCE NAME dicts.addresses_code_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1
-);
-
-
---
 -- Name: contragents; Type: TABLE; Schema: dicts; Owner: -
 --
 
 CREATE TABLE dicts.contragents (
     code integer CONSTRAINT dict_contragent_seq_not_null NOT NULL,
     contragent_name character varying(50),
-    contragent_id character varying(50),
+    contragent_id character varying(50) NOT NULL,
     contragent_type character varying(50),
     description character varying(512),
     id uuid DEFAULT gen_random_uuid() CONSTRAINT contragent_register_id_not_null NOT NULL,
     address_id uuid,
-    keywords text[],
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
     status_id uuid NOT NULL,
     merchant_id uuid,
@@ -2331,7 +2985,6 @@ CREATE TABLE dicts.dict_categories (
     category_name character varying(255) CONSTRAINT dict_category_category_name_not_null NOT NULL,
     category_id character varying(50) CONSTRAINT dict_category_category_id_not_null NOT NULL,
     parent_category_id character varying(50),
-    keywords text[] DEFAULT '{}'::text[],
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     status_id uuid NOT NULL
@@ -2423,7 +3076,8 @@ CREATE TABLE dicts.dict_statuses (
     entity_type character varying(50) NOT NULL,
     code character varying(20) NOT NULL,
     name character varying(100) NOT NULL,
-    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT chk_no_lowercase_transactions CHECK (((entity_type)::text <> 'transactions'::text))
 );
 
 
@@ -2465,7 +3119,6 @@ CREATE TABLE dicts.entities (
     entity_name character varying(50),
     entity_id character varying(50),
     category_id character varying(50),
-    keywords text[] DEFAULT '{}'::text[],
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     status_id uuid NOT NULL
@@ -2794,6 +3447,22 @@ CREATE TABLE processing.source_extractions (
 
 
 --
+-- Name: source_file_blobs; Type: TABLE; Schema: processing; Owner: -
+--
+
+CREATE TABLE processing.source_file_blobs (
+    source_file_id uuid NOT NULL,
+    compressed_data bytea NOT NULL,
+    mime_type character varying(50) DEFAULT 'image/jpeg'::character varying NOT NULL,
+    original_size bigint NOT NULL,
+    compressed_size bigint NOT NULL,
+    compression_ratio numeric(5,2),
+    is_protected boolean DEFAULT false NOT NULL,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+
+
+--
 -- Name: source_files_code_seq; Type: SEQUENCE; Schema: processing; Owner: -
 --
 
@@ -2821,7 +3490,11 @@ CREATE TABLE processing.source_files (
     status_id uuid CONSTRAINT source_photos_status_id_not_null NOT NULL,
     file_hash character varying(64),
     parent_id uuid,
-    reject_reason text
+    reject_reason text,
+    ingress_zone character varying(50) DEFAULT 'receipts_income'::character varying,
+    is_important boolean DEFAULT false NOT NULL,
+    doc_title character varying(255),
+    doc_type character varying(50) DEFAULT 'PENDING'::character varying
 );
 
 
@@ -2833,15 +3506,15 @@ CREATE TABLE processing.transaction_templates (
     id uuid DEFAULT gen_random_uuid() CONSTRAINT transaction_templates_id_not_null1 NOT NULL,
     transaction_name character varying(150) CONSTRAINT transaction_templates_transaction_name_not_null1 NOT NULL,
     amount numeric(15,2),
-    currency_id uuid,
+    currency_id uuid DEFAULT 'c1edc08f-a70a-4f89-aed4-8b547e7637f3'::uuid,
     type_id uuid,
     entity_id uuid,
     category_id uuid,
-    responsible_id uuid,
+    responsible_id uuid DEFAULT 'd461b979-31b1-46d5-a1fd-e2165a693902'::uuid,
     contragent_from_id uuid,
     contragent_to_id uuid,
     account_id uuid,
-    status_id uuid CONSTRAINT transaction_templates_status_id_not_null1 NOT NULL,
+    status_id uuid DEFAULT '63c67651-152d-4b3f-a33d-89d2958b88ba'::uuid CONSTRAINT transaction_templates_status_id_not_null1 NOT NULL,
     created_at timestamp(6) with time zone DEFAULT CURRENT_TIMESTAMP CONSTRAINT transaction_templates_created_at_not_null1 NOT NULL
 );
 
@@ -3117,6 +3790,21 @@ CREATE VIEW reports.ai_proxy_transactions AS
 
 
 --
+-- Name: ledger_by_accounts; Type: TABLE; Schema: reports; Owner: -
+--
+
+CREATE TABLE reports.ledger_by_accounts (
+    transaction_id integer NOT NULL,
+    account_id character varying(50) NOT NULL,
+    account_balance numeric(19,4) NOT NULL,
+    system_balance numeric(19,4) NOT NULL,
+    transaction_name text,
+    account_is_verified boolean NOT NULL,
+    system_is_verified boolean NOT NULL
+);
+
+
+--
 -- Name: postings_detailed; Type: VIEW; Schema: reports; Owner: -
 --
 
@@ -3153,7 +3841,8 @@ CREATE TABLE reports.system_verification_log (
     verified_count integer NOT NULL,
     total_balance_sum numeric(19,4) NOT NULL,
     verified_account_ids uuid[] NOT NULL,
-    verification_hash character varying(64) NOT NULL
+    verification_hash character varying(64) NOT NULL,
+    last_transaction_id uuid NOT NULL
 );
 
 
@@ -3236,6 +3925,23 @@ CREATE VIEW reports.v_active_account_report AS
 
 
 --
+-- Name: v_category_usage; Type: VIEW; Schema: reports; Owner: -
+--
+
+CREATE VIEW reports.v_category_usage AS
+ SELECT c.id,
+    c.code,
+    c.category_name,
+    c.category_id,
+    c.parent_category_id,
+    c.created_at,
+    count(t.id) AS usage_count
+   FROM (dicts.dict_categories c
+     LEFT JOIN public.transactions t ON ((t.category_id = c.id)))
+  GROUP BY c.id, c.code, c.category_name, c.category_id, c.parent_category_id, c.created_at;
+
+
+--
 -- Name: v_current_projects; Type: VIEW; Schema: reports; Owner: -
 --
 
@@ -3249,6 +3955,22 @@ CREATE VIEW reports.v_current_projects AS
      JOIN dicts.dict_statuses s ON ((p.status_id = s.id)))
   WHERE (((s.entity_type)::text = 'PROJECT'::text) AND ((s.code)::text = ANY ((ARRAY['DRAFT'::character varying, 'QUEUED'::character varying, 'DEVELOPMENT'::character varying, 'ACTIVE'::character varying])::text[])))
   ORDER BY p.created_at DESC;
+
+
+--
+-- Name: v_ledger_metrics; Type: VIEW; Schema: reports; Owner: -
+--
+
+CREATE VIEW reports.v_ledger_metrics AS
+ SELECT ( SELECT count(*) AS count
+           FROM public.transactions) AS transactions,
+    ( SELECT count(*) AS count
+           FROM public.acc_balance_snapshot_register) AS acc_balance_snapshot_register,
+    ( SELECT count(*) AS count
+           FROM reports.system_verification_log
+          WHERE (system_verification_log.verified_at >= '2026-10-13 00:00:00+05'::timestamp with time zone)) AS system_verification_log,
+    ( SELECT count(*) AS count
+           FROM audit.staging_transactions) AS staging_transactions;
 
 
 --
@@ -3274,6 +3996,191 @@ CREATE VIEW reports.v_monthly_transactions_summary AS
      LEFT JOIN dicts.accounts acc ON ((t.account_id = acc.id)))
   WHERE (t.type_id = ANY (ARRAY['e9f1c16a-dde8-48f8-85d3-ae46b42cd9a8'::uuid, '7bf484c8-1a59-41d2-8ee3-f1a38a0e4125'::uuid]))
   GROUP BY ((date_trunc('month'::text, (t.operation_date)::timestamp with time zone))::date), t.entity_id, e.entity_name, t.category_id, cat.category_name, t.contragent_to_id, c.contragent_name, t.account_id, acc.account_name;
+
+
+--
+-- Name: v_sys_consolidation_metrics; Type: VIEW; Schema: reports; Owner: -
+--
+
+CREATE VIEW reports.v_sys_consolidation_metrics AS
+ WITH tx_aggregates AS (
+         SELECT count(*) AS total_count,
+            count(*) FILTER (WHERE (((lower((transactions.transaction_name)::text) ~~ '%ревизия%'::text) OR (transactions.type_id = ANY (ARRAY['57f201e7-10ee-4219-a18d-ad6a8777f5a8'::uuid, '7bf484c8-1a59-41d2-8ee3-f1a38a0e4125'::uuid]))) AND (transactions.amount <> (0)::numeric))) AS target_count,
+            sum(abs(transactions.amount)) FILTER (WHERE (((lower((transactions.transaction_name)::text) ~~ '%ревизия%'::text) OR (transactions.type_id = ANY (ARRAY['57f201e7-10ee-4219-a18d-ad6a8777f5a8'::uuid, '7bf484c8-1a59-41d2-8ee3-f1a38a0e4125'::uuid]))) AND (transactions.amount <> (0)::numeric))) AS target_volume,
+            sum(transactions.amount) FILTER (WHERE (transactions.type_id = '1cff2885-bbdf-45f0-a2e5-1ffeac8d938b'::uuid)) AS total_income,
+            count(*) FILTER (WHERE (lower((transactions.transaction_name)::text) ~~ '%ревизия%'::text)) AS tx_revisions_count
+           FROM public.transactions
+        ), current_balance AS (
+         SELECT COALESCE(sum(account_state_report.balance), (0)::numeric) AS total_sys_balance
+           FROM reports.account_state_report
+        ), snapshot_aggregates AS (
+         SELECT count(*) AS snapshot_count
+           FROM public.acc_balance_snapshot_register
+        ), calculated_metrics AS (
+         SELECT t.total_count,
+            t.target_count,
+            t.target_volume,
+            t.total_income,
+            (t.tx_revisions_count + s.snapshot_count) AS total_audits_count,
+            NULLIF((t.total_income - b.total_sys_balance), (0)::numeric) AS money_passed_through
+           FROM ((tx_aggregates t
+             CROSS JOIN current_balance b)
+             CROSS JOIN snapshot_aggregates s)
+        )
+ SELECT total_count AS "Всего транзакций (шт)",
+    target_count AS "Из них Корректировок (шт)",
+    round(((100.0 * (target_count)::numeric) / (NULLIF(total_count, 0))::numeric), 2) AS "Доля корректировок по шт (%)",
+    COALESCE(money_passed_through, (0)::numeric) AS "Деньги прошедшие через систему",
+    COALESCE(target_volume, (0)::numeric) AS "Объем корректировок (сумма)",
+    round(((100.0 * COALESCE(target_volume, (0)::numeric)) / money_passed_through), 2) AS "Доля корректировок по сумме (%)",
+    total_audits_count AS "Количество сверок счетов (шт)"
+   FROM calculated_metrics;
+
+
+--
+-- Name: v_verified_state_ledger; Type: VIEW; Schema: reports; Owner: -
+--
+
+CREATE VIEW reports.v_verified_state_ledger AS
+ WITH ledger_raw AS (
+         SELECT ledger.transaction_id AS tx_code,
+            ledger.transaction_uuid AS tx_id,
+            ledger.name AS transaction_name,
+            ledger.operation_date,
+            ledger.account_id AS acc_uuid,
+            ledger.amount,
+            ledger.acc_balance AS running_acc_balance,
+            ledger.system_balance AS running_system_balance
+           FROM public.ledger
+        ), linked_logs AS (
+         SELECT log.id AS log_id,
+            log.verified_at,
+            ( SELECT l_sub.transaction_id
+                   FROM public.ledger l_sub
+                  WHERE (l_sub.operation_date <= log.verified_at)
+                  ORDER BY l_sub.operation_date DESC, l_sub.transaction_id DESC
+                 LIMIT 1) AS max_tx_code_for_log
+           FROM reports.system_verification_log log
+        ), new_model_snapshot_txs AS (
+         SELECT DISTINCT (r.tr_id)::integer AS tx_code
+           FROM public.acc_balance_snapshot_register r
+          WHERE ((r.tr_id IS NOT NULL) AND ((r.tr_id)::text <> ''::text))
+        ), ledger_flagged AS (
+         SELECT l.tx_code,
+            l.tx_id,
+            l.transaction_name,
+            l.operation_date,
+            l.acc_uuid,
+            l.amount,
+            l.running_acc_balance,
+            l.running_system_balance,
+                CASE
+                    WHEN (EXISTS ( SELECT 1
+                       FROM linked_logs ll
+                      WHERE (ll.max_tx_code_for_log = l.tx_code))) THEN 'Финальная (Лог)'::text
+                    WHEN ((l.tx_code >= 1363) AND (EXISTS ( SELECT 1
+                       FROM new_model_snapshot_txs nms
+                      WHERE (nms.tx_code = l.tx_code)))) THEN 'Node (Новая)'::text
+                    WHEN ((l.tx_code < 1363) AND ((lower(l.transaction_name) ~~ '%ревизия%'::text) OR (l.transaction_name = 'Ревизия'::text))) THEN 'Старая'::text
+                    ELSE 'Операционная'::text
+                END AS current_row_model
+           FROM ledger_raw l
+        ), account_states_history AS (
+         SELECT lf.tx_code,
+            lf.tx_id,
+            lf.transaction_name,
+            lf.operation_date,
+            lf.acc_uuid,
+            lf.amount,
+            lf.running_acc_balance,
+            lf.running_system_balance,
+            lf.current_row_model,
+            sum(
+                CASE
+                    WHEN (lf.current_row_model = ANY (ARRAY['Старая'::text, 'Node (Новая)'::text, 'Финальная (Лог)'::text])) THEN 1
+                    WHEN (lf.amount <> (0)::numeric) THEN '-1'::integer
+                    ELSE 0
+                END) OVER (PARTITION BY lf.acc_uuid ORDER BY lf.tx_code) AS account_clean_score
+           FROM ledger_flagged lf
+        ), account_dirty_flags AS (
+         SELECT ash.tx_code,
+            ash.tx_id,
+            ash.transaction_name,
+            ash.operation_date,
+            ash.acc_uuid,
+            ash.amount,
+            ash.running_acc_balance,
+            ash.running_system_balance,
+            ash.current_row_model,
+            ash.account_clean_score,
+                CASE
+                    WHEN (ash.account_clean_score <= 0) THEN 1
+                    ELSE 0
+                END AS is_account_dirty
+           FROM account_states_history ash
+        ), global_system_dirt_counter AS (
+         SELECT adf.tx_code,
+            adf.tx_id,
+            adf.transaction_name,
+            adf.operation_date,
+            adf.acc_uuid,
+            adf.amount,
+            adf.running_acc_balance,
+            adf.running_system_balance,
+            adf.current_row_model,
+            adf.account_clean_score,
+            adf.is_account_dirty,
+            sum(adf.is_account_dirty) OVER (PARTITION BY adf.tx_code) AS global_dirty_accounts_count
+           FROM account_dirty_flags adf
+        ), audit_packages AS (
+         SELECT ledger_flagged.tx_code,
+            ledger_flagged.operation_date AS op_date,
+            ledger_flagged.current_row_model,
+            max(ledger_flagged.tx_code) OVER (PARTITION BY ledger_flagged.operation_date, ledger_flagged.current_row_model) AS max_tx_code_of_batch
+           FROM ledger_flagged
+          WHERE (ledger_flagged.current_row_model = ANY (ARRAY['Старая'::text, 'Node (Новая)'::text, 'Финальная (Лог)'::text]))
+        )
+ SELECT DISTINCT g.tx_code,
+    g.tx_id AS transaction_id,
+    (g.operation_date)::timestamp without time zone AS transaction_date,
+    g.running_system_balance AS state_balance,
+    g.current_row_model AS verification_model,
+        CASE
+            WHEN (g.current_row_model = ANY (ARRAY['Старая'::text, 'Node (Новая)'::text, 'Финальная (Лог)'::text])) THEN 1
+            ELSE 0
+        END AS is_row_verified,
+        CASE
+            WHEN (g.current_row_model = 'Финальная (Лог)'::text) THEN 1
+            WHEN ((g.current_row_model = ANY (ARRAY['Старая'::text, 'Node (Новая)'::text])) AND (g.tx_code = ap.max_tx_code_of_batch) AND (g.global_dirty_accounts_count = 0)) THEN 1
+            ELSE 0
+        END AS is_verified_state,
+        CASE
+            WHEN (g.current_row_model = 'Финальная (Лог)'::text) THEN 'Система успешно подтверждена записью в системном журнале логов'::text
+            WHEN ((g.current_row_model = ANY (ARRAY['Старая'::text, 'Node (Новая)'::text])) AND (g.tx_code = ap.max_tx_code_of_batch) AND (g.global_dirty_accounts_count = 0)) THEN 'Верификация успешна: все измененные балансы счетов подтверждены аудитом'::text
+            WHEN ((g.current_row_model = ANY (ARRAY['Старая'::text, 'Node (Новая)'::text])) AND (g.tx_code <> ap.max_tx_code_of_batch)) THEN (('Промежуточная часть распределенной сверки пакета (смещение на код '::text || ap.max_tx_code_of_batch) || ')'::text)
+            WHEN ((g.current_row_model = ANY (ARRAY['Старая'::text, 'Node (Новая)'::text])) AND (g.global_dirty_accounts_count > 0)) THEN ('Неполный audit системы: обнаружено необработанных операционных счетов — '::text || g.global_dirty_accounts_count)
+            ELSE 'Обычная операционная транзакция: изменяет состояние баланса системы'::text
+        END AS verification_issue,
+    ap.max_tx_code_of_batch AS max_audit_code_of_batch
+   FROM (global_system_dirt_counter g
+     JOIN audit_packages ap ON ((g.tx_code = ap.tx_code)))
+  WHERE (g.current_row_model <> 'Операционная'::text);
+
+
+--
+-- Name: v_sys_verification_summary; Type: VIEW; Schema: reports; Owner: -
+--
+
+CREATE VIEW reports.v_sys_verification_summary AS
+ SELECT count(*) AS total_audit_events_count,
+    count(*) FILTER (WHERE (is_verified_state = 1)) AS fully_verified_states_count,
+    count(*) FILTER (WHERE ((is_verified_state = 0) AND (verification_issue ~~ 'Промежуточная%'::text))) AS intermediate_package_rows_count,
+    count(*) FILTER (WHERE ((is_verified_state = 0) AND (verification_issue ~~ 'Неполный аудит%'::text))) AS failed_verification_points_count,
+    round(((100.0 * (count(*) FILTER (WHERE (is_verified_state = 1)))::numeric) / (NULLIF(count(*), 0))::numeric), 2) AS ledger_reliability_index_pct,
+    count(*) FILTER (WHERE ((is_verified_state = 1) AND (verification_model = 'Старая'::text))) AS verified_via_old_model_count,
+    count(*) FILTER (WHERE ((is_verified_state = 1) AND (verification_model = 'Node (Новая)'::text))) AS verified_via_new_model_count,
+    count(*) FILTER (WHERE ((is_verified_state = 1) AND (verification_model = 'Финальная (Лог)'::text))) AS verified_via_log_model_count
+   FROM reports.v_verified_state_ledger;
 
 
 --
@@ -3310,6 +4217,84 @@ COMMENT ON VIEW reports.v_textile_cohort_transactions IS 'Финансовый �
 
 
 --
+-- Name: v_transactions_last; Type: VIEW; Schema: reports; Owner: -
+--
+
+CREATE VIEW reports.v_transactions_last AS
+ SELECT code,
+    transaction_name,
+    amount,
+    created_at
+   FROM public.transactions;
+
+
+--
+-- Name: v_workers_health; Type: VIEW; Schema: reports; Owner: -
+--
+
+CREATE VIEW reports.v_workers_health AS
+ WITH last_runs AS (
+         SELECT DISTINCT ON (workers_execution_log.worker_id) workers_execution_log.worker_id,
+            workers_execution_log.run_id,
+            workers_execution_log.status AS last_status,
+            workers_execution_log.trigger_source,
+            workers_execution_log.started_at AS last_started_at,
+            workers_execution_log.finished_at AS last_finished_at,
+            workers_execution_log.duration_ms AS last_duration_ms,
+            workers_execution_log.exit_code,
+            workers_execution_log.details
+           FROM audit.workers_execution_log
+          ORDER BY workers_execution_log.worker_id, workers_execution_log.started_at DESC
+        ), last_success AS (
+         SELECT DISTINCT ON (workers_execution_log.worker_id) workers_execution_log.worker_id,
+            workers_execution_log.finished_at AS last_success_at
+           FROM audit.workers_execution_log
+          WHERE ((workers_execution_log.status)::text = 'SUCCESS'::text)
+          ORDER BY workers_execution_log.worker_id, workers_execution_log.finished_at DESC
+        )
+ SELECT r.worker_id,
+    r.worker_code,
+    r.title,
+    r.executor_type,
+    r.schedule_expr,
+    r.is_active,
+    lr.last_status,
+    lr.last_started_at,
+    lr.last_duration_ms,
+    ls.last_success_at,
+    round((EXTRACT(epoch FROM (now() - COALESCE(ls.last_success_at, r.created_at))) / (60)::numeric)) AS silence_minutes,
+    r.max_silence_minutes,
+        CASE
+            WHEN (NOT r.is_active) THEN 'DISABLED'::text
+            WHEN ((lr.last_status)::text = 'FAILED'::text) THEN 'ALERT_FAILED'::text
+            WHEN ((EXTRACT(epoch FROM (now() - COALESCE(ls.last_success_at, r.created_at))) / (60)::numeric) > (r.max_silence_minutes)::numeric) THEN 'ALERT_OVERDUE'::text
+            WHEN ((lr.last_status)::text = 'RUNNING'::text) THEN 'WORKING'::text
+            ELSE 'HEALTHY'::text
+        END AS health_state,
+    lr.details AS last_details
+   FROM ((audit.workers_registry r
+     LEFT JOIN last_runs lr ON ((r.worker_id = lr.worker_id)))
+     LEFT JOIN last_success ls ON ((r.worker_id = ls.worker_id)));
+
+
+--
+-- Name: version_registry_report; Type: VIEW; Schema: reports; Owner: -
+--
+
+CREATE VIEW reports.version_registry_report AS
+ SELECT version_id AS current_ver,
+    update_version_id AS current_uvr,
+    registration_date,
+    description,
+    affected_objects,
+    code,
+    created_at
+   FROM development.version_updates
+  ORDER BY registration_date DESC, code DESC
+ LIMIT 1;
+
+
+--
 -- Name: audit_process_queue process_id; Type: DEFAULT; Schema: audit; Owner: -
 --
 
@@ -3328,13 +4313,6 @@ ALTER TABLE ONLY audit.staging_audit_results ALTER COLUMN staging_id SET DEFAULT
 --
 
 ALTER TABLE ONLY development.support_tickets ALTER COLUMN id SET DEFAULT nextval('development.support_tickets_id_seq'::regclass);
-
-
---
--- Name: contragents code; Type: DEFAULT; Schema: dicts; Owner: -
---
-
-ALTER TABLE ONLY dicts.contragents ALTER COLUMN code SET DEFAULT nextval('dicts.dict_contragent_seq_seq'::regclass);
 
 
 --
@@ -3466,11 +4444,75 @@ ALTER TABLE ONLY audit.transactions_fullfields
 
 
 --
+-- Name: workers_execution_log workers_execution_log_pkey; Type: CONSTRAINT; Schema: audit; Owner: -
+--
+
+ALTER TABLE ONLY audit.workers_execution_log
+    ADD CONSTRAINT workers_execution_log_pkey PRIMARY KEY (run_id);
+
+
+--
+-- Name: workers_registry workers_registry_pkey; Type: CONSTRAINT; Schema: audit; Owner: -
+--
+
+ALTER TABLE ONLY audit.workers_registry
+    ADD CONSTRAINT workers_registry_pkey PRIMARY KEY (worker_id);
+
+
+--
+-- Name: workers_registry workers_registry_worker_code_key; Type: CONSTRAINT; Schema: audit; Owner: -
+--
+
+ALTER TABLE ONLY audit.workers_registry
+    ADD CONSTRAINT workers_registry_worker_code_key UNIQUE (worker_code);
+
+
+--
+-- Name: role_metadata role_metadata_pkey; Type: CONSTRAINT; Schema: development; Owner: -
+--
+
+ALTER TABLE ONLY development.role_metadata
+    ADD CONSTRAINT role_metadata_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: role_metadata role_metadata_role_name_key; Type: CONSTRAINT; Schema: development; Owner: -
+--
+
+ALTER TABLE ONLY development.role_metadata
+    ADD CONSTRAINT role_metadata_role_name_key UNIQUE (role_name);
+
+
+--
+-- Name: role_metadata role_metadata_role_oid_key; Type: CONSTRAINT; Schema: development; Owner: -
+--
+
+ALTER TABLE ONLY development.role_metadata
+    ADD CONSTRAINT role_metadata_role_oid_key UNIQUE (role_oid);
+
+
+--
 -- Name: support_tickets support_tickets_pkey; Type: CONSTRAINT; Schema: development; Owner: -
 --
 
 ALTER TABLE ONLY development.support_tickets
     ADD CONSTRAINT support_tickets_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: version_updates version_updates_code_pkey; Type: CONSTRAINT; Schema: development; Owner: -
+--
+
+ALTER TABLE ONLY development.version_updates
+    ADD CONSTRAINT version_updates_code_pkey PRIMARY KEY (code);
+
+
+--
+-- Name: version_updates version_updates_code_unique; Type: CONSTRAINT; Schema: development; Owner: -
+--
+
+ALTER TABLE ONLY development.version_updates
+    ADD CONSTRAINT version_updates_code_unique UNIQUE (code);
 
 
 --
@@ -3762,6 +4804,14 @@ ALTER TABLE ONLY processing.source_extractions
 
 
 --
+-- Name: source_file_blobs source_file_blobs_pkey; Type: CONSTRAINT; Schema: processing; Owner: -
+--
+
+ALTER TABLE ONLY processing.source_file_blobs
+    ADD CONSTRAINT source_file_blobs_pkey PRIMARY KEY (source_file_id);
+
+
+--
 -- Name: source_files source_files_code_key; Type: CONSTRAINT; Schema: processing; Owner: -
 --
 
@@ -3906,6 +4956,14 @@ ALTER TABLE ONLY reports.account_state_report
 
 
 --
+-- Name: ledger_by_accounts ledger_by_accounts_pkey; Type: CONSTRAINT; Schema: reports; Owner: -
+--
+
+ALTER TABLE ONLY reports.ledger_by_accounts
+    ADD CONSTRAINT ledger_by_accounts_pkey PRIMARY KEY (transaction_id, account_id);
+
+
+--
 -- Name: system_verification_log system_verification_log_pkey; Type: CONSTRAINT; Schema: reports; Owner: -
 --
 
@@ -3996,6 +5054,20 @@ CREATE INDEX idx_staging_v1_1_status ON audit.staging_transactions USING btree (
 --
 
 CREATE INDEX idx_transactions_fullfields_keywords ON audit.transactions_fullfields USING gin (keywords);
+
+
+--
+-- Name: idx_workers_exec_status; Type: INDEX; Schema: audit; Owner: -
+--
+
+CREATE INDEX idx_workers_exec_status ON audit.workers_execution_log USING btree (status) WHERE ((status)::text = ANY ((ARRAY['RUNNING'::character varying, 'FAILED'::character varying])::text[]));
+
+
+--
+-- Name: idx_workers_exec_worker_started; Type: INDEX; Schema: audit; Owner: -
+--
+
+CREATE INDEX idx_workers_exec_worker_started ON audit.workers_execution_log USING btree (worker_id, started_at DESC);
 
 
 --
@@ -4139,6 +5211,13 @@ CREATE INDEX idx_receipts_source_file ON processing.receipts USING btree (source
 
 
 --
+-- Name: idx_source_files_doc_type; Type: INDEX; Schema: processing; Owner: -
+--
+
+CREATE INDEX idx_source_files_doc_type ON processing.source_files USING btree (doc_type);
+
+
+--
 -- Name: idx_source_files_hash; Type: INDEX; Schema: processing; Owner: -
 --
 
@@ -4251,6 +5330,13 @@ CREATE INDEX idx_precedents_contragent ON public.contragent_precedents USING btr
 
 
 --
+-- Name: idx_reports_ledger_acc; Type: INDEX; Schema: reports; Owner: -
+--
+
+CREATE INDEX idx_reports_ledger_acc ON reports.ledger_by_accounts USING btree (account_id);
+
+
+--
 -- Name: idx_sys_verification_log_date; Type: INDEX; Schema: reports; Owner: -
 --
 
@@ -4307,6 +5393,34 @@ ALTER TABLE archive.transactions_backup_20260630_0903 DISABLE TRIGGER trg_refres
 --
 
 CREATE TRIGGER trg_version_updates_insert BEFORE INSERT ON development.version_updates FOR EACH ROW EXECUTE FUNCTION development.fn_auto_generate_uvr();
+
+
+--
+-- Name: addresses trg_addresses_autocomplete; Type: TRIGGER; Schema: dicts; Owner: -
+--
+
+CREATE TRIGGER trg_addresses_autocomplete BEFORE INSERT ON dicts.addresses FOR EACH ROW EXECUTE FUNCTION dicts.trg_bi_addresses_autocomplete();
+
+
+--
+-- Name: contragents trg_contragents_autocomplete; Type: TRIGGER; Schema: dicts; Owner: -
+--
+
+CREATE TRIGGER trg_contragents_autocomplete BEFORE INSERT ON dicts.contragents FOR EACH ROW EXECUTE FUNCTION dicts.trg_bi_contragents_autocomplete();
+
+
+--
+-- Name: dict_categories trg_dict_categories_autocomplete; Type: TRIGGER; Schema: dicts; Owner: -
+--
+
+CREATE TRIGGER trg_dict_categories_autocomplete BEFORE INSERT ON dicts.dict_categories FOR EACH ROW EXECUTE FUNCTION dicts.trg_bi_dict_categories_autocomplete();
+
+
+--
+-- Name: entities trg_entities_autocomplete; Type: TRIGGER; Schema: dicts; Owner: -
+--
+
+CREATE TRIGGER trg_entities_autocomplete BEFORE INSERT ON dicts.entities FOR EACH ROW EXECUTE FUNCTION dicts.trg_bi_entities_autocomplete();
 
 
 --
@@ -4393,6 +5507,14 @@ ALTER TABLE ONLY audit.transactions_fullfields
 
 
 --
+-- Name: workers_execution_log workers_execution_log_worker_id_fkey; Type: FK CONSTRAINT; Schema: audit; Owner: -
+--
+
+ALTER TABLE ONLY audit.workers_execution_log
+    ADD CONSTRAINT workers_execution_log_worker_id_fkey FOREIGN KEY (worker_id) REFERENCES audit.workers_registry(worker_id) ON DELETE RESTRICT;
+
+
+--
 -- Name: contragents contragents_merchant_id_fkey; Type: FK CONSTRAINT; Schema: dicts; Owner: -
 --
 
@@ -4401,11 +5523,91 @@ ALTER TABLE ONLY dicts.contragents
 
 
 --
+-- Name: accounts fk_accounts_currency; Type: FK CONSTRAINT; Schema: dicts; Owner: -
+--
+
+ALTER TABLE ONLY dicts.accounts
+    ADD CONSTRAINT fk_accounts_currency FOREIGN KEY (currency) REFERENCES dicts.dicts_currencies(id);
+
+
+--
+-- Name: accounts fk_accounts_status; Type: FK CONSTRAINT; Schema: dicts; Owner: -
+--
+
+ALTER TABLE ONLY dicts.accounts
+    ADD CONSTRAINT fk_accounts_status FOREIGN KEY (status_id) REFERENCES dicts.dict_statuses(id);
+
+
+--
+-- Name: addresses fk_addresses_status; Type: FK CONSTRAINT; Schema: dicts; Owner: -
+--
+
+ALTER TABLE ONLY dicts.addresses
+    ADD CONSTRAINT fk_addresses_status FOREIGN KEY (status_id) REFERENCES dicts.dict_statuses(id);
+
+
+--
+-- Name: dict_categories fk_categories_status; Type: FK CONSTRAINT; Schema: dicts; Owner: -
+--
+
+ALTER TABLE ONLY dicts.dict_categories
+    ADD CONSTRAINT fk_categories_status FOREIGN KEY (status_id) REFERENCES dicts.dict_statuses(id);
+
+
+--
 -- Name: contragents fk_contragent_legal_entity; Type: FK CONSTRAINT; Schema: dicts; Owner: -
 --
 
 ALTER TABLE ONLY dicts.contragents
     ADD CONSTRAINT fk_contragent_legal_entity FOREIGN KEY (legal_entity_id) REFERENCES dicts.legal_entities(id);
+
+
+--
+-- Name: contragents fk_contragents_address; Type: FK CONSTRAINT; Schema: dicts; Owner: -
+--
+
+ALTER TABLE ONLY dicts.contragents
+    ADD CONSTRAINT fk_contragents_address FOREIGN KEY (address_id) REFERENCES dicts.addresses(id);
+
+
+--
+-- Name: contragents fk_contragents_status; Type: FK CONSTRAINT; Schema: dicts; Owner: -
+--
+
+ALTER TABLE ONLY dicts.contragents
+    ADD CONSTRAINT fk_contragents_status FOREIGN KEY (status_id) REFERENCES dicts.dict_statuses(id);
+
+
+--
+-- Name: entities fk_entities_status; Type: FK CONSTRAINT; Schema: dicts; Owner: -
+--
+
+ALTER TABLE ONLY dicts.entities
+    ADD CONSTRAINT fk_entities_status FOREIGN KEY (status_id) REFERENCES dicts.dict_statuses(id);
+
+
+--
+-- Name: dict_ledger_versions fk_ledger_versions_status; Type: FK CONSTRAINT; Schema: dicts; Owner: -
+--
+
+ALTER TABLE ONLY dicts.dict_ledger_versions
+    ADD CONSTRAINT fk_ledger_versions_status FOREIGN KEY (status_id) REFERENCES dicts.dict_statuses(id);
+
+
+--
+-- Name: responsibles fk_responsibles_status; Type: FK CONSTRAINT; Schema: dicts; Owner: -
+--
+
+ALTER TABLE ONLY dicts.responsibles
+    ADD CONSTRAINT fk_responsibles_status FOREIGN KEY (status_id) REFERENCES dicts.dict_statuses(id);
+
+
+--
+-- Name: dict_types fk_types_status; Type: FK CONSTRAINT; Schema: dicts; Owner: -
+--
+
+ALTER TABLE ONLY dicts.dict_types
+    ADD CONSTRAINT fk_types_status FOREIGN KEY (status_id) REFERENCES dicts.dict_statuses(id);
 
 
 --
@@ -4446,6 +5648,14 @@ ALTER TABLE ONLY processing.api_requests_log
 
 ALTER TABLE ONLY processing.api_requests_log
     ADD CONSTRAINT fk_api_requests_log_status FOREIGN KEY (status_id) REFERENCES dicts.dict_statuses(id);
+
+
+--
+-- Name: source_file_blobs fk_blobs_source_file; Type: FK CONSTRAINT; Schema: processing; Owner: -
+--
+
+ALTER TABLE ONLY processing.source_file_blobs
+    ADD CONSTRAINT fk_blobs_source_file FOREIGN KEY (source_file_id) REFERENCES processing.source_files(id) ON DELETE RESTRICT;
 
 
 --
@@ -4680,11 +5890,20 @@ GRANT USAGE ON SCHEMA audit TO reflex_app_user;
 
 
 --
+-- Name: SCHEMA development; Type: ACL; Schema: -; Owner: -
+--
+
+GRANT USAGE ON SCHEMA development TO pwa_workers_inspector;
+
+
+--
 -- Name: SCHEMA dicts; Type: ACL; Schema: -; Owner: -
 --
 
 GRANT USAGE ON SCHEMA dicts TO receipt_processor_svc;
 GRANT USAGE ON SCHEMA dicts TO reflex_app_user;
+GRANT USAGE ON SCHEMA dicts TO data_ingress_worker;
+GRANT USAGE ON SCHEMA dicts TO pwa_workers_inspector;
 
 
 --
@@ -4693,6 +5912,8 @@ GRANT USAGE ON SCHEMA dicts TO reflex_app_user;
 
 GRANT USAGE ON SCHEMA processing TO receipt_processor_svc;
 GRANT USAGE ON SCHEMA processing TO reflex_app_user;
+GRANT USAGE ON SCHEMA processing TO data_ingress_worker;
+GRANT USAGE ON SCHEMA processing TO pwa_workers_inspector;
 
 
 --
@@ -4788,11 +6009,69 @@ GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE audit.v_audit_diff TO reflex_app_user
 
 
 --
+-- Name: TABLE workers_execution_log; Type: ACL; Schema: audit; Owner: -
+--
+
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE audit.workers_execution_log TO reflex_app_user;
+
+
+--
+-- Name: TABLE workers_registry; Type: ACL; Schema: audit; Owner: -
+--
+
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE audit.workers_registry TO reflex_app_user;
+
+
+--
+-- Name: TABLE file_versions; Type: ACL; Schema: development; Owner: -
+--
+
+GRANT SELECT ON TABLE development.file_versions TO pwa_workers_inspector;
+
+
+--
+-- Name: TABLE role_metadata; Type: ACL; Schema: development; Owner: -
+--
+
+GRANT SELECT ON TABLE development.role_metadata TO pwa_workers_inspector;
+
+
+--
+-- Name: TABLE support_tickets; Type: ACL; Schema: development; Owner: -
+--
+
+GRANT SELECT ON TABLE development.support_tickets TO pwa_workers_inspector;
+
+
+--
+-- Name: TABLE v_db_access_registry; Type: ACL; Schema: development; Owner: -
+--
+
+GRANT SELECT ON TABLE development.v_db_access_registry TO pwa_workers_inspector;
+
+
+--
+-- Name: TABLE version_updates; Type: ACL; Schema: development; Owner: -
+--
+
+GRANT SELECT ON TABLE development.version_updates TO pwa_workers_inspector;
+
+
+--
+-- Name: TABLE versions; Type: ACL; Schema: development; Owner: -
+--
+
+GRANT SELECT ON TABLE development.versions TO pwa_workers_inspector;
+
+
+--
 -- Name: TABLE accounts; Type: ACL; Schema: dicts; Owner: -
 --
 
 GRANT SELECT ON TABLE dicts.accounts TO receipt_processor_svc;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE dicts.accounts TO reflex_app_user;
+GRANT SELECT ON TABLE dicts.accounts TO data_ingress_worker;
+GRANT SELECT ON TABLE dicts.accounts TO pwa_workers_inspector;
 
 
 --
@@ -4801,14 +6080,8 @@ GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE dicts.accounts TO reflex_app_user;
 
 GRANT SELECT ON TABLE dicts.addresses TO receipt_processor_svc;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE dicts.addresses TO reflex_app_user;
-
-
---
--- Name: SEQUENCE addresses_code_seq; Type: ACL; Schema: dicts; Owner: -
---
-
-GRANT ALL ON SEQUENCE dicts.addresses_code_seq TO receipt_processor_svc;
-GRANT SELECT,USAGE ON SEQUENCE dicts.addresses_code_seq TO reflex_app_user;
+GRANT SELECT ON TABLE dicts.addresses TO data_ingress_worker;
+GRANT SELECT ON TABLE dicts.addresses TO pwa_workers_inspector;
 
 
 --
@@ -4817,6 +6090,8 @@ GRANT SELECT,USAGE ON SEQUENCE dicts.addresses_code_seq TO reflex_app_user;
 
 GRANT SELECT ON TABLE dicts.contragents TO receipt_processor_svc;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE dicts.contragents TO reflex_app_user;
+GRANT SELECT ON TABLE dicts.contragents TO data_ingress_worker;
+GRANT SELECT ON TABLE dicts.contragents TO pwa_workers_inspector;
 
 
 --
@@ -4825,6 +6100,8 @@ GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE dicts.contragents TO reflex_app_user;
 
 GRANT SELECT ON TABLE dicts.counterperyid_t_flw_037_3006 TO receipt_processor_svc;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE dicts.counterperyid_t_flw_037_3006 TO reflex_app_user;
+GRANT SELECT ON TABLE dicts.counterperyid_t_flw_037_3006 TO data_ingress_worker;
+GRANT SELECT ON TABLE dicts.counterperyid_t_flw_037_3006 TO pwa_workers_inspector;
 
 
 --
@@ -4833,6 +6110,8 @@ GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE dicts.counterperyid_t_flw_037_3006 TO
 
 GRANT SELECT ON TABLE dicts.dict_categories TO receipt_processor_svc;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE dicts.dict_categories TO reflex_app_user;
+GRANT SELECT ON TABLE dicts.dict_categories TO data_ingress_worker;
+GRANT SELECT ON TABLE dicts.dict_categories TO pwa_workers_inspector;
 
 
 --
@@ -4857,6 +6136,8 @@ GRANT SELECT,USAGE ON SEQUENCE dicts.dict_contragent_seq_seq TO reflex_app_user;
 
 GRANT SELECT ON TABLE dicts.dict_ledger_versions TO receipt_processor_svc;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE dicts.dict_ledger_versions TO reflex_app_user;
+GRANT SELECT ON TABLE dicts.dict_ledger_versions TO data_ingress_worker;
+GRANT SELECT ON TABLE dicts.dict_ledger_versions TO pwa_workers_inspector;
 
 
 --
@@ -4873,6 +6154,8 @@ GRANT SELECT,USAGE ON SEQUENCE dicts.dict_ledger_versions_version_id_seq TO refl
 
 GRANT SELECT ON TABLE dicts.dict_statuses TO receipt_processor_svc;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE dicts.dict_statuses TO reflex_app_user;
+GRANT SELECT ON TABLE dicts.dict_statuses TO data_ingress_worker;
+GRANT SELECT ON TABLE dicts.dict_statuses TO pwa_workers_inspector;
 
 
 --
@@ -4881,6 +6164,8 @@ GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE dicts.dict_statuses TO reflex_app_use
 
 GRANT SELECT ON TABLE dicts.dict_types TO receipt_processor_svc;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE dicts.dict_types TO reflex_app_user;
+GRANT SELECT ON TABLE dicts.dict_types TO data_ingress_worker;
+GRANT SELECT ON TABLE dicts.dict_types TO pwa_workers_inspector;
 
 
 --
@@ -4889,6 +6174,8 @@ GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE dicts.dict_types TO reflex_app_user;
 
 GRANT SELECT ON TABLE dicts.dicts_currencies TO receipt_processor_svc;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE dicts.dicts_currencies TO reflex_app_user;
+GRANT SELECT ON TABLE dicts.dicts_currencies TO data_ingress_worker;
+GRANT SELECT ON TABLE dicts.dicts_currencies TO pwa_workers_inspector;
 
 
 --
@@ -4897,6 +6184,8 @@ GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE dicts.dicts_currencies TO reflex_app_
 
 GRANT SELECT ON TABLE dicts.entities TO receipt_processor_svc;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE dicts.entities TO reflex_app_user;
+GRANT SELECT ON TABLE dicts.entities TO data_ingress_worker;
+GRANT SELECT ON TABLE dicts.entities TO pwa_workers_inspector;
 
 
 --
@@ -4905,6 +6194,8 @@ GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE dicts.entities TO reflex_app_user;
 
 GRANT SELECT ON TABLE dicts.legal_entities TO receipt_processor_svc;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE dicts.legal_entities TO reflex_app_user;
+GRANT SELECT ON TABLE dicts.legal_entities TO data_ingress_worker;
+GRANT SELECT ON TABLE dicts.legal_entities TO pwa_workers_inspector;
 
 
 --
@@ -4921,6 +6212,8 @@ GRANT SELECT,USAGE ON SEQUENCE dicts.legal_entities_code_seq TO reflex_app_user;
 
 GRANT SELECT ON TABLE dicts.merchants TO receipt_processor_svc;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE dicts.merchants TO reflex_app_user;
+GRANT SELECT ON TABLE dicts.merchants TO data_ingress_worker;
+GRANT SELECT ON TABLE dicts.merchants TO pwa_workers_inspector;
 
 
 --
@@ -4937,6 +6230,8 @@ GRANT SELECT,USAGE ON SEQUENCE dicts.merchants_code_seq TO reflex_app_user;
 
 GRANT SELECT ON TABLE dicts.responsibles TO receipt_processor_svc;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE dicts.responsibles TO reflex_app_user;
+GRANT SELECT ON TABLE dicts.responsibles TO data_ingress_worker;
+GRANT SELECT ON TABLE dicts.responsibles TO pwa_workers_inspector;
 
 
 --
@@ -4945,6 +6240,8 @@ GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE dicts.responsibles TO reflex_app_user
 
 GRANT SELECT ON TABLE dicts.source_extractions TO receipt_processor_svc;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE dicts.source_extractions TO reflex_app_user;
+GRANT SELECT ON TABLE dicts.source_extractions TO data_ingress_worker;
+GRANT SELECT ON TABLE dicts.source_extractions TO pwa_workers_inspector;
 
 
 --
@@ -4953,6 +6250,8 @@ GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE dicts.source_extractions TO reflex_ap
 
 GRANT ALL ON TABLE processing.aive_lock TO receipt_processor_svc;
 GRANT ALL ON TABLE processing.aive_lock TO reflex_app_user;
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE processing.aive_lock TO data_ingress_worker;
+GRANT SELECT ON TABLE processing.aive_lock TO pwa_workers_inspector;
 
 
 --
@@ -4961,6 +6260,8 @@ GRANT ALL ON TABLE processing.aive_lock TO reflex_app_user;
 
 GRANT ALL ON TABLE processing.api_blocked_models TO receipt_processor_svc;
 GRANT ALL ON TABLE processing.api_blocked_models TO reflex_app_user;
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE processing.api_blocked_models TO data_ingress_worker;
+GRANT SELECT ON TABLE processing.api_blocked_models TO pwa_workers_inspector;
 
 
 --
@@ -4969,6 +6270,8 @@ GRANT ALL ON TABLE processing.api_blocked_models TO reflex_app_user;
 
 GRANT ALL ON TABLE processing.api_request_blobs_cache TO receipt_processor_svc;
 GRANT ALL ON TABLE processing.api_request_blobs_cache TO reflex_app_user;
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE processing.api_request_blobs_cache TO data_ingress_worker;
+GRANT SELECT ON TABLE processing.api_request_blobs_cache TO pwa_workers_inspector;
 
 
 --
@@ -4977,6 +6280,8 @@ GRANT ALL ON TABLE processing.api_request_blobs_cache TO reflex_app_user;
 
 GRANT ALL ON TABLE processing.api_requests_log TO receipt_processor_svc;
 GRANT ALL ON TABLE processing.api_requests_log TO reflex_app_user;
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE processing.api_requests_log TO data_ingress_worker;
+GRANT SELECT ON TABLE processing.api_requests_log TO pwa_workers_inspector;
 
 
 --
@@ -4985,6 +6290,8 @@ GRANT ALL ON TABLE processing.api_requests_log TO reflex_app_user;
 
 GRANT ALL ON TABLE processing.api_requests_log_backup_120726_1339 TO receipt_processor_svc;
 GRANT ALL ON TABLE processing.api_requests_log_backup_120726_1339 TO reflex_app_user;
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE processing.api_requests_log_backup_120726_1339 TO data_ingress_worker;
+GRANT SELECT ON TABLE processing.api_requests_log_backup_120726_1339 TO pwa_workers_inspector;
 
 
 --
@@ -4993,6 +6300,7 @@ GRANT ALL ON TABLE processing.api_requests_log_backup_120726_1339 TO reflex_app_
 
 GRANT ALL ON SEQUENCE processing.api_requests_log_code_seq TO receipt_processor_svc;
 GRANT ALL ON SEQUENCE processing.api_requests_log_code_seq TO reflex_app_user;
+GRANT SELECT,USAGE ON SEQUENCE processing.api_requests_log_code_seq TO data_ingress_worker;
 
 
 --
@@ -5001,6 +6309,8 @@ GRANT ALL ON SEQUENCE processing.api_requests_log_code_seq TO reflex_app_user;
 
 GRANT ALL ON TABLE processing.receipts TO receipt_processor_svc;
 GRANT ALL ON TABLE processing.receipts TO reflex_app_user;
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE processing.receipts TO data_ingress_worker;
+GRANT SELECT ON TABLE processing.receipts TO pwa_workers_inspector;
 
 
 --
@@ -5009,6 +6319,7 @@ GRANT ALL ON TABLE processing.receipts TO reflex_app_user;
 
 GRANT ALL ON SEQUENCE processing.receipts_code_seq TO receipt_processor_svc;
 GRANT ALL ON SEQUENCE processing.receipts_code_seq TO reflex_app_user;
+GRANT SELECT,USAGE ON SEQUENCE processing.receipts_code_seq TO data_ingress_worker;
 
 
 --
@@ -5017,6 +6328,18 @@ GRANT ALL ON SEQUENCE processing.receipts_code_seq TO reflex_app_user;
 
 GRANT ALL ON TABLE processing.source_extractions TO receipt_processor_svc;
 GRANT ALL ON TABLE processing.source_extractions TO reflex_app_user;
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE processing.source_extractions TO data_ingress_worker;
+GRANT SELECT ON TABLE processing.source_extractions TO pwa_workers_inspector;
+
+
+--
+-- Name: TABLE source_file_blobs; Type: ACL; Schema: processing; Owner: -
+--
+
+GRANT ALL ON TABLE processing.source_file_blobs TO reflex_app_user;
+GRANT ALL ON TABLE processing.source_file_blobs TO receipt_processor_svc;
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE processing.source_file_blobs TO data_ingress_worker;
+GRANT SELECT ON TABLE processing.source_file_blobs TO pwa_workers_inspector;
 
 
 --
@@ -5025,6 +6348,7 @@ GRANT ALL ON TABLE processing.source_extractions TO reflex_app_user;
 
 GRANT ALL ON SEQUENCE processing.source_files_code_seq TO receipt_processor_svc;
 GRANT ALL ON SEQUENCE processing.source_files_code_seq TO reflex_app_user;
+GRANT SELECT,USAGE ON SEQUENCE processing.source_files_code_seq TO data_ingress_worker;
 
 
 --
@@ -5033,6 +6357,8 @@ GRANT ALL ON SEQUENCE processing.source_files_code_seq TO reflex_app_user;
 
 GRANT ALL ON TABLE processing.source_files TO receipt_processor_svc;
 GRANT ALL ON TABLE processing.source_files TO reflex_app_user;
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE processing.source_files TO data_ingress_worker;
+GRANT SELECT ON TABLE processing.source_files TO pwa_workers_inspector;
 
 
 --
@@ -5041,6 +6367,8 @@ GRANT ALL ON TABLE processing.source_files TO reflex_app_user;
 
 GRANT ALL ON TABLE processing.transaction_templates TO reflex_app_user;
 GRANT ALL ON TABLE processing.transaction_templates TO receipt_processor_svc;
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE processing.transaction_templates TO data_ingress_worker;
+GRANT SELECT ON TABLE processing.transaction_templates TO pwa_workers_inspector;
 
 
 --
@@ -5049,6 +6377,8 @@ GRANT ALL ON TABLE processing.transaction_templates TO receipt_processor_svc;
 
 GRANT ALL ON TABLE processing.transaction_templates_20261023_123600 TO reflex_app_user;
 GRANT ALL ON TABLE processing.transaction_templates_20261023_123600 TO receipt_processor_svc;
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE processing.transaction_templates_20261023_123600 TO data_ingress_worker;
+GRANT SELECT ON TABLE processing.transaction_templates_20261023_123600 TO pwa_workers_inspector;
 
 
 --
@@ -5057,6 +6387,8 @@ GRANT ALL ON TABLE processing.transaction_templates_20261023_123600 TO receipt_p
 
 GRANT ALL ON TABLE processing.vw_source_extractions_by_target TO receipt_processor_svc;
 GRANT ALL ON TABLE processing.vw_source_extractions_by_target TO reflex_app_user;
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE processing.vw_source_extractions_by_target TO data_ingress_worker;
+GRANT SELECT ON TABLE processing.vw_source_extractions_by_target TO pwa_workers_inspector;
 
 
 --
@@ -5138,6 +6470,13 @@ GRANT SELECT ON TABLE reports.ai_proxy_transactions TO reflex_app_user;
 
 
 --
+-- Name: TABLE ledger_by_accounts; Type: ACL; Schema: reports; Owner: -
+--
+
+GRANT SELECT ON TABLE reports.ledger_by_accounts TO reflex_app_user;
+
+
+--
 -- Name: TABLE postings_detailed; Type: ACL; Schema: reports; Owner: -
 --
 
@@ -5173,10 +6512,24 @@ GRANT SELECT ON TABLE reports.v_active_account_report TO reflex_app_user;
 
 
 --
+-- Name: TABLE v_category_usage; Type: ACL; Schema: reports; Owner: -
+--
+
+GRANT SELECT ON TABLE reports.v_category_usage TO reflex_app_user;
+
+
+--
 -- Name: TABLE v_current_projects; Type: ACL; Schema: reports; Owner: -
 --
 
 GRANT SELECT ON TABLE reports.v_current_projects TO reflex_app_user;
+
+
+--
+-- Name: TABLE v_ledger_metrics; Type: ACL; Schema: reports; Owner: -
+--
+
+GRANT SELECT ON TABLE reports.v_ledger_metrics TO reflex_app_user;
 
 
 --
@@ -5187,10 +6540,52 @@ GRANT SELECT ON TABLE reports.v_monthly_transactions_summary TO reflex_app_user;
 
 
 --
+-- Name: TABLE v_sys_consolidation_metrics; Type: ACL; Schema: reports; Owner: -
+--
+
+GRANT SELECT ON TABLE reports.v_sys_consolidation_metrics TO reflex_app_user;
+
+
+--
+-- Name: TABLE v_verified_state_ledger; Type: ACL; Schema: reports; Owner: -
+--
+
+GRANT SELECT ON TABLE reports.v_verified_state_ledger TO reflex_app_user;
+
+
+--
+-- Name: TABLE v_sys_verification_summary; Type: ACL; Schema: reports; Owner: -
+--
+
+GRANT SELECT ON TABLE reports.v_sys_verification_summary TO reflex_app_user;
+
+
+--
 -- Name: TABLE v_textile_cohort_transactions; Type: ACL; Schema: reports; Owner: -
 --
 
 GRANT SELECT ON TABLE reports.v_textile_cohort_transactions TO reflex_app_user;
+
+
+--
+-- Name: TABLE v_transactions_last; Type: ACL; Schema: reports; Owner: -
+--
+
+GRANT SELECT ON TABLE reports.v_transactions_last TO reflex_app_user;
+
+
+--
+-- Name: TABLE v_workers_health; Type: ACL; Schema: reports; Owner: -
+--
+
+GRANT SELECT ON TABLE reports.v_workers_health TO reflex_app_user;
+
+
+--
+-- Name: TABLE version_registry_report; Type: ACL; Schema: reports; Owner: -
+--
+
+GRANT SELECT ON TABLE reports.version_registry_report TO reflex_app_user;
 
 
 --
@@ -5228,6 +6623,7 @@ ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA processing GRANT ALL ON SEQ
 
 ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA processing GRANT ALL ON TABLES TO reflex_app_user;
 ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA processing GRANT ALL ON TABLES TO receipt_processor_svc;
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA processing GRANT SELECT ON TABLES TO pwa_workers_inspector;
 
 
 --
@@ -5262,5 +6658,5 @@ ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA reports GRANT SELECT ON TAB
 -- PostgreSQL database dump complete
 --
 
-\unrestrict TNdp1IJ8LfVgD8uOzOzUWjZsoaTRRVNB4hXu4QTR6xd3pABjsbcomU5oWCcHrtw
+\unrestrict pO1IgNwQajiNcFuU0Z8GlglugjcQlrdTZpOsgIZ3X16WCmLr45zRIYqs4nXvSxN
 

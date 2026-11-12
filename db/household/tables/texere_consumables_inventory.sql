@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict E5fwqkrY4R7frcFLWbVAH5vDnJWF4pdjBzcnW1JWQAKYKQTZzztY80CfkY5JjMf
+\restrict UjQN0T9IiwMhZ5LE7Pg1Gvl53k3BpKetadwmt6ASbSv8h0buKIOG1i5qa8djPN8
 
 -- Dumped from database version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
 -- Dumped by pg_dump version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
@@ -89,8 +89,15 @@ CREATE INDEX idx_consumables_inv_type_name ON texere.consumables_inventory USING
 
 
 --
+-- Name: TABLE consumables_inventory; Type: ACL; Schema: texere; Owner: -
+--
+
+GRANT SELECT ON TABLE texere.consumables_inventory TO reflex_app_user;
+
+
+--
 -- PostgreSQL database dump complete
 --
 
-\unrestrict E5fwqkrY4R7frcFLWbVAH5vDnJWF4pdjBzcnW1JWQAKYKQTZzztY80CfkY5JjMf
+\unrestrict UjQN0T9IiwMhZ5LE7Pg1Gvl53k3BpKetadwmt6ASbSv8h0buKIOG1i5qa8djPN8
 

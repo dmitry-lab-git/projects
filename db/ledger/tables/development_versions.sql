@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict Eq4TjAsFhkMp8wHEMvCl1LKeskiK6n7XUlXfevEuJEsfSvnpuLevcBOQfM4AYCe
+\restrict Aujolh9h7ygLu0cc77gxuSDFlIzjwKBQQLfkWgpkn2yKP52cRE1v5M6Prxp9PEu
 
 -- Dumped from database version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
 -- Dumped by pg_dump version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
@@ -49,8 +49,15 @@ ALTER TABLE ONLY development.versions
 
 
 --
+-- Name: TABLE versions; Type: ACL; Schema: development; Owner: -
+--
+
+GRANT SELECT ON TABLE development.versions TO pwa_workers_inspector;
+
+
+--
 -- PostgreSQL database dump complete
 --
 
-\unrestrict Eq4TjAsFhkMp8wHEMvCl1LKeskiK6n7XUlXfevEuJEsfSvnpuLevcBOQfM4AYCe
+\unrestrict Aujolh9h7ygLu0cc77gxuSDFlIzjwKBQQLfkWgpkn2yKP52cRE1v5M6Prxp9PEu
 

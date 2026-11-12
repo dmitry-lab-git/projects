@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict 0AJDFeYHnDn2DtD8r0SlDIdV1TG8h6HbjQlD1AKHnSaWVi98oDWp5D3z6gE2tHm
+\restrict bh2CgV3jbuCZUvjDMOPtRmhaXB3rnzYIy62hNThNVe8JaKO5bQsjNCNjf9mKbJd
 
 -- Dumped from database version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
 -- Dumped by pg_dump version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
@@ -47,7 +47,8 @@ CREATE TABLE public.transactions (
     source_extraction_id uuid CONSTRAINT transactions_new_source_extraction_id_not_null NOT NULL,
     tx_hash character varying(64),
     created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP CONSTRAINT transactions_new_created_at_not_null NOT NULL,
-    status_id uuid NOT NULL
+    status_id uuid NOT NULL,
+    CONSTRAINT chk_transactions_code_natural CHECK ((code > 0))
 );
 
 
@@ -120,5 +121,5 @@ GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.transactions TO antigravity;
 -- PostgreSQL database dump complete
 --
 
-\unrestrict 0AJDFeYHnDn2DtD8r0SlDIdV1TG8h6HbjQlD1AKHnSaWVi98oDWp5D3z6gE2tHm
+\unrestrict bh2CgV3jbuCZUvjDMOPtRmhaXB3rnzYIy62hNThNVe8JaKO5bQsjNCNjf9mKbJd
 

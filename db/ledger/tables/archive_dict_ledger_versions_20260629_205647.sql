@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict aehtoq6kndQN3CfN6EqhMs0vhrIWIDVjSanaIWRrVezbW91hreH3sQDuc4Vm7nk
+\restrict nHV5GsY7hfEkTwyx9PapO0MUWPJx8nxNg1aPiFUhznI8ZaFCtMYHR3Ck6ZeuV1w
 
 -- Dumped from database version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
 -- Dumped by pg_dump version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
@@ -43,5 +43,5 @@ CREATE TABLE archive.dict_ledger_versions_20260629_205647 (
 -- PostgreSQL database dump complete
 --
 
-\unrestrict aehtoq6kndQN3CfN6EqhMs0vhrIWIDVjSanaIWRrVezbW91hreH3sQDuc4Vm7nk
+\unrestrict nHV5GsY7hfEkTwyx9PapO0MUWPJx8nxNg1aPiFUhznI8ZaFCtMYHR3Ck6ZeuV1w
 

@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict KIV8c0sSJ6BYifnNbs9t0owST5JtfggDvnGWKAiZHpfyeOlGdCGLdmdP3Gb0oaq
+\restrict N6afzDuSd1EzVfkn8lmjBIeoYy6Fg7lj6miQNFWRznn1xZg2mvAIftRLdgMui2f
 
 -- Dumped from database version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
 -- Dumped by pg_dump version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
@@ -39,7 +39,11 @@ CREATE TABLE processing.source_files (
     status_id uuid CONSTRAINT source_photos_status_id_not_null NOT NULL,
     file_hash character varying(64),
     parent_id uuid,
-    reject_reason text
+    reject_reason text,
+    ingress_zone character varying(50) DEFAULT 'receipts_income'::character varying,
+    is_important boolean DEFAULT false NOT NULL,
+    doc_title character varying(255),
+    doc_type character varying(50) DEFAULT 'PENDING'::character varying
 );
 
 
@@ -68,6 +72,13 @@ ALTER TABLE ONLY processing.source_files
 
 
 --
+-- Name: idx_source_files_doc_type; Type: INDEX; Schema: processing; Owner: -
+--
+
+CREATE INDEX idx_source_files_doc_type ON processing.source_files USING btree (doc_type);
+
+
+--
 -- Name: idx_source_files_hash; Type: INDEX; Schema: processing; Owner: -
 --
 
@@ -88,11 +99,13 @@ ALTER TABLE ONLY processing.source_files
 
 GRANT ALL ON TABLE processing.source_files TO receipt_processor_svc;
 GRANT ALL ON TABLE processing.source_files TO reflex_app_user;
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE processing.source_files TO data_ingress_worker;
+GRANT SELECT ON TABLE processing.source_files TO pwa_workers_inspector;
 
 
 --
 -- PostgreSQL database dump complete
 --
 
-\unrestrict KIV8c0sSJ6BYifnNbs9t0owST5JtfggDvnGWKAiZHpfyeOlGdCGLdmdP3Gb0oaq
+\unrestrict N6afzDuSd1EzVfkn8lmjBIeoYy6Fg7lj6miQNFWRznn1xZg2mvAIftRLdgMui2f
 

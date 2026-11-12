@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict c0DQczBP8amcp3ApEz3alsB0TRHWvbH5uqdbOe1aoVrGL2WL4RNCAMgRxV4zloy
+\restrict SlGiXUh1j70OfOAr3PFqeFw8gyVvz8TGdk8vleCoNmkSBpd5BkYW2IWlyhg5l66
 
 -- Dumped from database version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
 -- Dumped by pg_dump version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
@@ -49,5 +49,5 @@ GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE medicine.v_monthly_supplements_summar
 -- PostgreSQL database dump complete
 --
 
-\unrestrict c0DQczBP8amcp3ApEz3alsB0TRHWvbH5uqdbOe1aoVrGL2WL4RNCAMgRxV4zloy
+\unrestrict SlGiXUh1j70OfOAr3PFqeFw8gyVvz8TGdk8vleCoNmkSBpd5BkYW2IWlyhg5l66
 

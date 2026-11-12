@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict nZNN1xrCwtGBugMuTMy27OWsNtXZ1ZrHkMvm8R9EaOtYU71t9HkvZsoVmIAmLd7
+\restrict mcCWEC4EBi14VIHfSMFK8F4qnSzExgIo4cSSXjJzxrhh6HBxlRONB3k7Erpwbdy
 
 -- Dumped from database version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
 -- Dumped by pg_dump version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
@@ -61,5 +61,5 @@ GRANT SELECT ON TABLE reports.transactions TO reflex_app_user;
 -- PostgreSQL database dump complete
 --
 
-\unrestrict nZNN1xrCwtGBugMuTMy27OWsNtXZ1ZrHkMvm8R9EaOtYU71t9HkvZsoVmIAmLd7
+\unrestrict mcCWEC4EBi14VIHfSMFK8F4qnSzExgIo4cSSXjJzxrhh6HBxlRONB3k7Erpwbdy
 

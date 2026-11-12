@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict lKb5QnSX0yxSgAjjxm0UvFtnrod1FZjGbVr12vGbTClQPZkU0rBfocsVyiGTbdf
+\restrict N74olCt0qdkYfvcS0zqkbng1FgBCuL7MKsS7vI6miCsfeUVa01W7XcredOy6doS
 
 -- Dumped from database version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
 -- Dumped by pg_dump version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
@@ -32,7 +32,6 @@ CREATE TABLE dicts.dict_categories (
     category_name character varying(255) CONSTRAINT dict_category_category_name_not_null NOT NULL,
     category_id character varying(50) CONSTRAINT dict_category_category_id_not_null NOT NULL,
     parent_category_id character varying(50),
-    keywords text[] DEFAULT '{}'::text[],
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     status_id uuid NOT NULL
@@ -83,11 +82,28 @@ ALTER TABLE ONLY dicts.dict_categories
 
 
 --
+-- Name: dict_categories trg_dict_categories_autocomplete; Type: TRIGGER; Schema: dicts; Owner: -
+--
+
+CREATE TRIGGER trg_dict_categories_autocomplete BEFORE INSERT ON dicts.dict_categories FOR EACH ROW EXECUTE FUNCTION dicts.trg_bi_dict_categories_autocomplete();
+
+
+--
+-- Name: dict_categories fk_categories_status; Type: FK CONSTRAINT; Schema: dicts; Owner: -
+--
+
+ALTER TABLE ONLY dicts.dict_categories
+    ADD CONSTRAINT fk_categories_status FOREIGN KEY (status_id) REFERENCES dicts.dict_statuses(id);
+
+
+--
 -- Name: TABLE dict_categories; Type: ACL; Schema: dicts; Owner: -
 --
 
 GRANT SELECT ON TABLE dicts.dict_categories TO receipt_processor_svc;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE dicts.dict_categories TO reflex_app_user;
+GRANT SELECT ON TABLE dicts.dict_categories TO data_ingress_worker;
+GRANT SELECT ON TABLE dicts.dict_categories TO pwa_workers_inspector;
 
 
 --
@@ -102,5 +118,5 @@ GRANT SELECT,USAGE ON SEQUENCE dicts.dict_category_id_seq TO reflex_app_user;
 -- PostgreSQL database dump complete
 --
 
-\unrestrict lKb5QnSX0yxSgAjjxm0UvFtnrod1FZjGbVr12vGbTClQPZkU0rBfocsVyiGTbdf
+\unrestrict N74olCt0qdkYfvcS0zqkbng1FgBCuL7MKsS7vI6miCsfeUVa01W7XcredOy6doS
 

@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict jx0TGzAngQVDQbSPI17DCsILYEeIshW6u1HoAOEMmCpJdHfF9UDLNOGaEfvBPaE
+\restrict BgaRl91J5q3rl3QrefXXeJESl69kmK1n6zto8cswlfhLYpG3kFFVFT2e0e5Uszn
 
 -- Dumped from database version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
 -- Dumped by pg_dump version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
@@ -102,11 +102,13 @@ ALTER TABLE ONLY processing.api_requests_log
 
 GRANT ALL ON TABLE processing.api_requests_log TO receipt_processor_svc;
 GRANT ALL ON TABLE processing.api_requests_log TO reflex_app_user;
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE processing.api_requests_log TO data_ingress_worker;
+GRANT SELECT ON TABLE processing.api_requests_log TO pwa_workers_inspector;
 
 
 --
 -- PostgreSQL database dump complete
 --
 
-\unrestrict jx0TGzAngQVDQbSPI17DCsILYEeIshW6u1HoAOEMmCpJdHfF9UDLNOGaEfvBPaE
+\unrestrict BgaRl91J5q3rl3QrefXXeJESl69kmK1n6zto8cswlfhLYpG3kFFVFT2e0e5Uszn
 

@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict auhZgv068lWRjdWg0yy5hlS4p9rWrEog22z70y3VkY9OLQKCxMpY4D2zXSpzFZl
+\restrict GpblyjIKGOe4kpEAEIGG8UuNxDWCMngOzpZsWYFBjZDfnuyCvRL24XcfvwmDY4Y
 
 -- Dumped from database version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
 -- Dumped by pg_dump version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
@@ -41,8 +41,15 @@ CREATE TABLE development.file_versions (
 
 
 --
+-- Name: TABLE file_versions; Type: ACL; Schema: development; Owner: -
+--
+
+GRANT SELECT ON TABLE development.file_versions TO pwa_workers_inspector;
+
+
+--
 -- PostgreSQL database dump complete
 --
 
-\unrestrict auhZgv068lWRjdWg0yy5hlS4p9rWrEog22z70y3VkY9OLQKCxMpY4D2zXSpzFZl
+\unrestrict GpblyjIKGOe4kpEAEIGG8UuNxDWCMngOzpZsWYFBjZDfnuyCvRL24XcfvwmDY4Y
 

@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict x9l3sH1OKT4LBeOJ5XqbCwZdGcJGZQtuoYlHUbIK6ikBaHPBmFW2qyc2cqUxZFb
+\restrict qeW0u2GQHRV3NRQwGEy2C3bkiUb4ylaFTbhhJhUegPNrKzEZb6QE0RS1HK0JaGk
 
 -- Dumped from database version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
 -- Dumped by pg_dump version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
@@ -35,7 +35,8 @@ CREATE TABLE reports.system_verification_log (
     verified_count integer NOT NULL,
     total_balance_sum numeric(19,4) NOT NULL,
     verified_account_ids uuid[] NOT NULL,
-    verification_hash character varying(64) NOT NULL
+    verification_hash character varying(64) NOT NULL,
+    last_transaction_id uuid NOT NULL
 );
 
 
@@ -81,5 +82,5 @@ GRANT SELECT ON TABLE reports.system_verification_log TO reflex_app_user;
 -- PostgreSQL database dump complete
 --
 
-\unrestrict x9l3sH1OKT4LBeOJ5XqbCwZdGcJGZQtuoYlHUbIK6ikBaHPBmFW2qyc2cqUxZFb
+\unrestrict qeW0u2GQHRV3NRQwGEy2C3bkiUb4ylaFTbhhJhUegPNrKzEZb6QE0RS1HK0JaGk
 

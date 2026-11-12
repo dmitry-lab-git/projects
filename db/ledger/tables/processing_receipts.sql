@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict lqSo4HDqfzlWRJfl3CX5JfBNJ6MNOLxOfey4udkkjGh7aKsL8SDJ088gHhivw5s
+\restrict qKXLlOTpW0AJmcHHj4nlzsvJwPrafi0YG26zFPiiCxYznbkNxcngdiGTWwn65gY
 
 -- Dumped from database version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
 -- Dumped by pg_dump version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
@@ -112,6 +112,8 @@ ALTER TABLE ONLY processing.receipts
 
 GRANT ALL ON TABLE processing.receipts TO receipt_processor_svc;
 GRANT ALL ON TABLE processing.receipts TO reflex_app_user;
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE processing.receipts TO data_ingress_worker;
+GRANT SELECT ON TABLE processing.receipts TO pwa_workers_inspector;
 
 
 --
@@ -120,11 +122,12 @@ GRANT ALL ON TABLE processing.receipts TO reflex_app_user;
 
 GRANT ALL ON SEQUENCE processing.receipts_code_seq TO receipt_processor_svc;
 GRANT ALL ON SEQUENCE processing.receipts_code_seq TO reflex_app_user;
+GRANT SELECT,USAGE ON SEQUENCE processing.receipts_code_seq TO data_ingress_worker;
 
 
 --
 -- PostgreSQL database dump complete
 --
 
-\unrestrict lqSo4HDqfzlWRJfl3CX5JfBNJ6MNOLxOfey4udkkjGh7aKsL8SDJ088gHhivw5s
+\unrestrict qKXLlOTpW0AJmcHHj4nlzsvJwPrafi0YG26zFPiiCxYznbkNxcngdiGTWwn65gY
 

@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict mMI2QM31PuJ4d51Y7bHeGO0ffbDwZO8NwqVfHlY9kBFfabcbfPDecbhmmgkW5LX
+\restrict cWiBWoq4sV1KOOs7OBdh3ewMefk5YBw09e1qMWNBeEWqd9XEnh09uT0Zwq9vUD6
 
 -- Dumped from database version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
 -- Dumped by pg_dump version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
@@ -73,11 +73,13 @@ ALTER TABLE ONLY processing.transaction_templates_20261023_123600
 
 GRANT ALL ON TABLE processing.transaction_templates_20261023_123600 TO reflex_app_user;
 GRANT ALL ON TABLE processing.transaction_templates_20261023_123600 TO receipt_processor_svc;
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE processing.transaction_templates_20261023_123600 TO data_ingress_worker;
+GRANT SELECT ON TABLE processing.transaction_templates_20261023_123600 TO pwa_workers_inspector;
 
 
 --
 -- PostgreSQL database dump complete
 --
 
-\unrestrict mMI2QM31PuJ4d51Y7bHeGO0ffbDwZO8NwqVfHlY9kBFfabcbfPDecbhmmgkW5LX
+\unrestrict cWiBWoq4sV1KOOs7OBdh3ewMefk5YBw09e1qMWNBeEWqd9XEnh09uT0Zwq9vUD6
 

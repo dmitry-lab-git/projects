@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict jaDK0jV3Z27LUUBbHI2doNHqWJZZvR3HSApYnwsLOgRKDMG59fMBb2aFKWdOmvj
+\restrict RvzKZtgKJ15NWve5PCXupBtzaGUo41v6NesFn7YKtarRZjefG4PU6QbY9fO7Wkz
 
 -- Dumped from database version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
 -- Dumped by pg_dump version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
@@ -64,11 +64,13 @@ ALTER TABLE ONLY dicts.dicts_currencies
 
 GRANT SELECT ON TABLE dicts.dicts_currencies TO receipt_processor_svc;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE dicts.dicts_currencies TO reflex_app_user;
+GRANT SELECT ON TABLE dicts.dicts_currencies TO data_ingress_worker;
+GRANT SELECT ON TABLE dicts.dicts_currencies TO pwa_workers_inspector;
 
 
 --
 -- PostgreSQL database dump complete
 --
 
-\unrestrict jaDK0jV3Z27LUUBbHI2doNHqWJZZvR3HSApYnwsLOgRKDMG59fMBb2aFKWdOmvj
+\unrestrict RvzKZtgKJ15NWve5PCXupBtzaGUo41v6NesFn7YKtarRZjefG4PU6QbY9fO7Wkz
 

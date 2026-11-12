@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict Jg8h5AOxNPr7jb4LXYN7HmeMyDJPzT1F3zSQRLpCfvqYlqGNyjTjsbsi0PnESt9
+\restrict eMsJVwBNjusHGFhMWKwRw2jahTNKvIZolJn8rsGPbZYOmAwBJysRStL0ehcmhfr
 
 -- Dumped from database version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
 -- Dumped by pg_dump version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
@@ -89,8 +89,15 @@ CREATE INDEX idx_materials_inv_type_name ON texere.materials_inventory USING btr
 
 
 --
+-- Name: TABLE materials_inventory; Type: ACL; Schema: texere; Owner: -
+--
+
+GRANT SELECT ON TABLE texere.materials_inventory TO reflex_app_user;
+
+
+--
 -- PostgreSQL database dump complete
 --
 
-\unrestrict Jg8h5AOxNPr7jb4LXYN7HmeMyDJPzT1F3zSQRLpCfvqYlqGNyjTjsbsi0PnESt9
+\unrestrict eMsJVwBNjusHGFhMWKwRw2jahTNKvIZolJn8rsGPbZYOmAwBJysRStL0ehcmhfr
 

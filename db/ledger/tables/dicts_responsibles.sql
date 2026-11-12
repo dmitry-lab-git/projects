@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict PAh3edvNteDh1foeq3PqrwRnc1GAhQimQTGfLc8rHNbaDWKX30TjzZDyVCX7Cof
+\restrict WfyaHCuVKd5a1NDlZvAo5Fx6D0sqt1YeOfZDdgKaNsTDLR10lC9gkrtCeOyNvXp
 
 -- Dumped from database version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
 -- Dumped by pg_dump version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
@@ -54,16 +54,26 @@ ALTER TABLE ONLY dicts.responsibles
 
 
 --
+-- Name: responsibles fk_responsibles_status; Type: FK CONSTRAINT; Schema: dicts; Owner: -
+--
+
+ALTER TABLE ONLY dicts.responsibles
+    ADD CONSTRAINT fk_responsibles_status FOREIGN KEY (status_id) REFERENCES dicts.dict_statuses(id);
+
+
+--
 -- Name: TABLE responsibles; Type: ACL; Schema: dicts; Owner: -
 --
 
 GRANT SELECT ON TABLE dicts.responsibles TO receipt_processor_svc;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE dicts.responsibles TO reflex_app_user;
+GRANT SELECT ON TABLE dicts.responsibles TO data_ingress_worker;
+GRANT SELECT ON TABLE dicts.responsibles TO pwa_workers_inspector;
 
 
 --
 -- PostgreSQL database dump complete
 --
 
-\unrestrict PAh3edvNteDh1foeq3PqrwRnc1GAhQimQTGfLc8rHNbaDWKX30TjzZDyVCX7Cof
+\unrestrict WfyaHCuVKd5a1NDlZvAo5Fx6D0sqt1YeOfZDdgKaNsTDLR10lC9gkrtCeOyNvXp
 
