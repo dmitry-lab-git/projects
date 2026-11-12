@@ -1,0 +1,29 @@
+DATA CONSTRAINTS & WORKER ARCHITECTURE CONTRACT:
+
+TARGET REGISTRY: audit.workers_registry (Database: ledger)
+    - worker_id: uuid PRIMARY KEY, auto-generated via gen_random_uuid(). DO NOT provide manually.
+    - worker_code: varchar(64) UNIQUE NOT NULL - snake_case slug (e.g. infra_events_collector).
+    - title: varchar(150) NOT NULL - Human-readable Russian title of the digital worker.
+    - executor_type: varchar(32) NOT NULL - Strictly one of: 'CRON', 'APSCHEDULER', 'MANUAL'.
+    - schedule_expr: varchar(64) - Cron expression (e.g. '*/15 * * * *') or trigger description.
+    - script_path: text NOT NULL - Entrypoint filename inside Ledger/pwa/src/services/cron/jobs/.
+    - max_silence_minutes: integer NOT NULL DEFAULT 1500 - SLA threshold before ALERT_OVERDUE triggers.
+    - is_active: boolean NOT NULL DEFAULT TRUE - Set FALSE while worker is in DRAFT/SCAFFOLD stage.
+
+MANDATORY TELEMETRY CONTRACT (worker_tracker.py):
+1. Every background worker MUST report lifecycle events to audit.workers_execution_log using client-generated UUID (run_id).
+2. For Bash (.sh) entrypoints:
+   - Must start with `set -e`.
+   - Must initialize `RUN_ID=$($PY "$TRACKER" start "<worker_code>" --trigger "SCHEDULED")` and register `trap 'RC=$?; [ $RC -eq 0 ] && ST="SUCCESS" || ST="FAILED"; $PY "$TRACKER" finish "$RUN_ID" --status "$ST" --code $RC' EXIT`.
+   - Concurrent cron jobs MUST use `flock -n` and close skipped runs with `--status "SKIPPED" --code 0` before `trap - EXIT; exit 0`.
+3. For Python (.py) workers (APScheduler / direct modules):
+   - Must import `start_run, finish_run, can_run_debounced` from `.worker_tracker`.
+   - Debouncing MUST query PostgreSQL via `can_run_debounced()`, never local `.last_run` dot-files.
+   - Execution metrics and error tracebacks MUST be passed as JSONB dictionary into `finish_run(..., details={...})`.
+
+DEPLOYMENT & REGISTRATION CHECKLIST:
+1. Place worker files inside `/home/fujitsu-u745/Projects/Ledger/pwa/src/services/cron/jobs/`.
+2. Register metadata row in `audit.workers_registry` (DB: `ledger`).
+3. If `executor_type = 'CRON'`, add timing variable to `schedule.conf` and register in `update_schedule.sh`.
+4. Verify syntax (`py_compile`) and verify health status in `reports.v_workers_health`.
+5. Record architectural change in `development.version_updates` (UVR).
