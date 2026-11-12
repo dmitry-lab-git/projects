@@ -1,23 +1,23 @@
 import os
-import time
+import sys
 import json
 import reflex as rx
 from sqlalchemy import text
 import logging
 from datetime import datetime, timezone, timedelta
 
+from .worker_tracker import start_run, finish_run, can_run_debounced
 from pwa.db import get_household_session
 from .git_service import run_git_push
 
 logger = logging.getLogger(__name__)
 
-# Фикс: абсолютный путь к файлу блокировки
-LAST_RUN_FILE = "/home/fujitsu-u745/Projects/.pwa_metrics_last_run"
 MIN_INTERVAL_SEC = 21600  # 6 часов для обычных запусков
 GIT_DEBOUNCE_SEC = 90     # 90 сек защита от дублей
 
 SYSTEM_REPORT_FILE = "/home/fujitsu-u745/Projects/digital_living_room/system_report_data.json"
 EVENTS_JSON_FILE = "/home/fujitsu-u745/Projects/digital_living_room/events.json"
+
 
 def fetch_version(session):
     try:
@@ -26,30 +26,26 @@ def fetch_version(session):
             FROM reports.version_registry_report LIMIT 1;
         """)).fetchone()
         if res:
+            ver, uvr, reg_date = res
             return {
-                "ver": res[0] or "VER-???",
-                "uvr": res[1] or "UVR-???",
-                "date": str(res[2]) if res[2] else ""
+                "ver": ver or "VER-???",
+                "uvr": uvr or "UVR-???",
+                "date": str(reg_date) if reg_date else ""
             }
     except Exception as e:
         logger.warning(f"CRON: Не удалось получить версию из reports.version_registry_report: {e}")
     return {"ver": "VER-???", "uvr": "UVR-???", "date": ""}
 
+
 def update_pwa_dashboard_metrics(force: bool = False):
-    current_time = time.time()
-    
     # --- ЗАЩИТА ОТ ДУБЛЕЙ ---
-    if os.path.exists(LAST_RUN_FILE):
-        with open(LAST_RUN_FILE, "r") as f:
-            try:
-                last_run = float(f.read().strip())
-                interval = GIT_DEBOUNCE_SEC if force else MIN_INTERVAL_SEC
-                elapsed = current_time - last_run
-                if elapsed < interval:
-                    logger.info(f"CRON: скип обновления, прошло только {elapsed:.0f}с < {interval}с (force={force})")
-                    return
-            except ValueError:
-                pass
+    interval = GIT_DEBOUNCE_SEC if force else MIN_INTERVAL_SEC
+    if not can_run_debounced("pwa_dashboard_metrics", interval):
+        logger.info(f"CRON: скип обновления по дебаунсу из БД (< {interval}с, force={force})")
+        return
+
+    trigger = "MANUAL_FORCE" if force else "SCHEDULED"
+    run_id = start_run("pwa_dashboard_metrics", trigger=trigger)
 
     logger.info(f"CRON: Запуск обновления метрик (force={force})...")
     
@@ -75,11 +71,12 @@ def update_pwa_dashboard_metrics(force: bool = False):
             """)).fetchone()
             
             if ledger_res:
+                tx, snap, ver_log, staging = ledger_res
                 digital_metrics = {
-                    "transactions": str(ledger_res[0]),
-                    "balance_snapshots": str(ledger_res[1]),
-                    "verified_states": str(ledger_res[2]),
-                    "pwa_staging_flow": str(ledger_res[3])
+                    "transactions": str(tx),
+                    "balance_snapshots": str(snap),
+                    "verified_states": str(ver_log),
+                    "pwa_staging_flow": str(staging)
                 }
 
             # Получение актуальной версии из схемы reports
@@ -107,12 +104,14 @@ def update_pwa_dashboard_metrics(force: bool = False):
                     FROM texere.v_textile_production_metrics;
                 """)).fetchone()
                 
-                if textile_res and textile_res[0] is not None:
-                    textile_metrics = {
-                        "projects_implemented": str(textile_res[0]),
-                        "finished_products": str(textile_res[1]),
-                        "material_consumption_m": float(textile_res[2]) if textile_res[2] else 0.0
-                    }
+                if textile_res:
+                    t_proj, t_items, t_cons = textile_res
+                    if t_proj is not None:
+                        textile_metrics = {
+                            "projects_implemented": str(t_proj),
+                            "finished_products": str(t_items),
+                            "material_consumption_m": float(t_cons) if t_cons else 0.0
+                        }
             except Exception as e:
                 household_session.rollback()
                 logger.warning(f"CRON: Схема texere недоступна: {e}")
@@ -126,13 +125,14 @@ def update_pwa_dashboard_metrics(force: bool = False):
                 """)).fetchone()
                 
                 if repair_res:
+                    r_tot, r_comp, r_plan, r_out, r_share, r_disp = repair_res
                     repair_metrics = {
-                        "total_projects": str(repair_res[0]),
-                        "completed_projects": str(repair_res[1]),
-                        "planning_projects": str(repair_res[2]),
-                        "outsourced_count": str(repair_res[3]),
-                        "outsource_share_percent": str(repair_res[4]),
-                        "disposed_count": str(repair_res[5])
+                        "total_projects": str(r_tot),
+                        "completed_projects": str(r_comp),
+                        "planning_projects": str(r_plan),
+                        "outsourced_count": str(r_out),
+                        "outsource_share_percent": str(r_share),
+                        "disposed_count": str(r_disp)
                     }
             except Exception as e:
                 household_session.rollback()
@@ -148,19 +148,20 @@ def update_pwa_dashboard_metrics(force: bool = False):
                 """)).fetchone()
                 
                 if gardening_res:
+                    g_tot, g_flow, g_seed, g_const, g_sbox, g_tbox, g_alert = gardening_res
                     gardening_metrics = {
-                        "total_flowers": int(gardening_res[0]),
-                        "flowering_count": int(gardening_res[1]),
-                        "seeds_germinating": int(gardening_res[2]),
-                        "free_const_boxes_count": int(gardening_res[3]),
-                        "free_seedling_boxes_count": int(gardening_res[4]),
-                        "free_transplant_boxes_count": int(gardening_res[5]),
-                        "active_alerts_count": int(gardening_res[6])
+                        "total_flowers": int(g_tot),
+                        "flowering_count": int(g_flow),
+                        "seeds_germinating": int(g_seed),
+                        "free_const_boxes_count": int(g_const),
+                        "free_seedling_boxes_count": int(g_sbox),
+                        "free_transplant_boxes_count": int(g_tbox),
+                        "active_alerts_count": int(g_alert)
                     }
             except Exception as e:
                 household_session.rollback()
                 logger.warning(f"CRON: Представление gardening.v_gardening_dashboard недоступно: {e}")
-
+            
             # 2.4 Утилизация по текущему месяцу
             try:
                 disposition_rows = household_session.execute(text("""
@@ -229,8 +230,7 @@ def update_pwa_dashboard_metrics(force: bool = False):
 
         if old_hash == new_hash:
             logger.info("CRON: Данные метрик не изменились, пропуск сохранения и пуша.")
-            with open(LAST_RUN_FILE, "w") as f_lr:
-                f_lr.write(str(current_time))
+            finish_run(run_id, status="SUCCESS", details={"skipped_push": True, "reason": "no_changes"})
             return
 
         # Запись system_report_data.json
@@ -260,12 +260,21 @@ def update_pwa_dashboard_metrics(force: bool = False):
             commit_message=f"Auto-update metrics: {formatted_date}"
         )
         if pushed:
-            with open(LAST_RUN_FILE, "w") as f_lr:
-                f_lr.write(str(current_time))
-            logger.info("CRON: Git push выполнен успешно, LAST_RUN обновлен.")
+            finish_run(run_id, status="SUCCESS", details={
+                "transactions": digital_metrics["transactions"],
+                "version": version_data["uvr"],
+                "git_pushed": True
+            })
+            logger.info("CRON: Git push выполнен успешно.")
         else:
-            logger.warning("CRON: Пуш не удался, LAST_RUN не обновляем для ретрая")
+            finish_run(run_id, status="FAILED", exit_code=1, details={
+                "git_pushed": False,
+                "error": "git push failed"
+            })
+            logger.warning("CRON: Пуш не удался")
             
     except Exception as general_error:
         logger.error(f"CRON Критическая ошибка: {str(general_error)}", exc_info=True)
+        finish_run(run_id, status="FAILED", exit_code=1, details={"error": str(general_error)})
         raise general_error
+

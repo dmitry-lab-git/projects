@@ -2,6 +2,11 @@
 Service: Automatic Ledger metrics updater for README.md
 Runs daily 00:00 via APScheduler integrated in Reflex PWA.
 """
+
+import sys
+sys.path.append("/home/fujitsu-u745/Projects/core")
+from .worker_tracker import start_run, finish_run, can_run_debounced
+
 import os
 import re
 import time
@@ -21,7 +26,6 @@ START_MARKER = "<!-- LEDGER_METRICS_START -->"
 END_MARKER = "<!-- LEDGER_METRICS_END -->"
 DB_URL = os.getenv("DATABASE_URL")
 
-LAST_RUN_FILE = Path(".readme_metrics_last_run")
 MIN_INTERVAL_SEC = 21600  # 6 часов для cron
 GIT_DEBOUNCE_SEC = 90     # защита от дублей
 
@@ -75,53 +79,57 @@ _Updated daily at 00:00 (Pavlodar, Astana) via APScheduler (Reflex PWA backend)_
     return block
 
 def update_readme_metrics(force: bool = False):
-    current_time = time.time()
-
-    # --- ЗАЩИТА ОТ ДУБЛЕЙ ---
-    if LAST_RUN_FILE.exists():
-        try:
-            last_run = float(LAST_RUN_FILE.read_text().strip())
-            interval = GIT_DEBOUNCE_SEC if force else MIN_INTERVAL_SEC
-            elapsed = current_time - last_run
-            if elapsed < interval:
-                logger.info(f"README CRON: скип, прошло только {elapsed:.0f}с < {interval}с (force={force})")
-                return False
-        except ValueError:
-            pass
-
-    logger.info(f"Starting README metrics update... force={force}")
-    counts = get_counts()
-    logger.info(f"Counts: {counts}")
-    
-    if not README_PATH.exists():
-        logger.error(f"README not found: {README_PATH}")
+    # 1. Проверка дебаунса через БД вместо файла
+    interval = GIT_DEBOUNCE_SEC if force else MIN_INTERVAL_SEC
+    if not can_run_debounced("readme_metrics_updater", interval):
+        logger.info(f"README CRON: скип по дебаунсу из БД (< {interval}с, force={force})")
         return False
-        
-    content = README_PATH.read_text(encoding="utf-8")
-    new_block = build_markdown_block(counts)
-    
-    if START_MARKER in content and END_MARKER in content:
-        pattern = re.compile(f"{re.escape(START_MARKER)}.*?{re.escape(END_MARKER)}\\s*", re.DOTALL)
-        content = pattern.sub("", content)
-    
-    content = re.sub(r"^(\s*---\s*\n*)+", "", content.lstrip())
-    new_content = new_block.strip() + "\n\n---\n\n" + content.lstrip()
-    
-    README_PATH.write_text(new_content, encoding="utf-8")
-    logger.info(f"README updated successfully: {README_PATH}")
-    
-    now_str = datetime.now(ZoneInfo("Asia/Almaty")).strftime("%d.%m.%Y %H:%M:%S")
-    pushed = run_git_push(
-        files_to_add=["README.md"],
-        commit_message=f"docs(readme): auto-update metrics {now_str}"
-    )
 
-    if pushed:
-        LAST_RUN_FILE.write_text(str(current_time))
-    else:
-        logger.warning("README CRON: пуш не удался, LAST_RUN не обновляем")
+    # 2. Регистрация старта в БД
+    trigger = "MANUAL_FORCE" if force else "SCHEDULED"
+    run_id = start_run("readme_metrics_updater", trigger=trigger)
 
-    return pushed
+    try:
+        logger.info(f"Starting README metrics update... force={force}")
+        counts = get_counts()
+        logger.info(f"Counts: {counts}")
+
+        if not README_PATH.exists():
+            logger.error(f"README not found: {README_PATH}")
+            finish_run(run_id, status="FAILED", exit_code=1, details={"error": "README not found"})
+            return False
+
+        content = README_PATH.read_text(encoding="utf-8")
+        new_block = build_markdown_block(counts)
+
+        if START_MARKER in content and END_MARKER in content:
+            pattern = re.compile(f"{re.escape(START_MARKER)}.*?{re.escape(END_MARKER)}\\s*", re.DOTALL)
+            content = pattern.sub("", content)
+
+        content = re.sub(r"^(\s*---\s*\n*)+", "", content.lstrip())
+        new_content = new_block.strip() + "\n\n---\n\n" + content.lstrip()
+
+        README_PATH.write_text(new_content, encoding="utf-8")
+        logger.info(f"README updated successfully: {README_PATH}")
+
+        now_str = datetime.now(ZoneInfo("Asia/Almaty")).strftime("%d.%m.%Y %H:%M:%S")
+        pushed = run_git_push(
+            files_to_add=["README.md"],
+            commit_message=f"docs(readme): auto-update metrics {now_str}"
+        )
+
+        # 3. Фиксация результата в БД вместо записи в LAST_RUN_FILE
+        if pushed:
+            finish_run(run_id, status="SUCCESS", details={"counts": counts, "git_pushed": True})
+        else:
+            logger.warning("README CRON: пуш не удался")
+            finish_run(run_id, status="FAILED", exit_code=1, details={"counts": counts, "git_pushed": False})
+
+        return pushed
+
+    except Exception as e:
+        finish_run(run_id, status="FAILED", exit_code=1, details={"error": str(e)})
+        raise
 
 if __name__ == "__main__":
     update_readme_metrics(force=True)
