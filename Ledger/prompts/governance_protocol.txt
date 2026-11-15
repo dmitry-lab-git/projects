@@ -1,0 +1,122 @@
+# Manifesto & Governance Protocol: `development.projects`
+
+> **Version:** 1.0.0  
+> **Schema:** `development`  
+> **Table:** `development.projects`  
+> **Owner:** Dmitry Lab (`b8adb275-fb93-43b2-9f75-db2ca49c270c`)
+
+---
+
+## 1. Purpose & Architectural Manifesto
+
+The `development.projects` table is the **Single Source of Truth (SSOT)** for all intangible assets, brands, core systems, business units, and executable projects within the Dmitry Lab ecosystem.
+
+1. **Unified Registry:** Brands, core infrastructure, and client deliverables coexist in a single hierarchical graph (`Adjacency List` via `parent_id`) rather than fragmented tables.
+2. **Agent-Ready Design:** Every entity must be machine-readable. Autonomous agents (e.g., `hq-core` departments, Builders, Inspectors) rely on `code`, `entity_type`, and `metadata` to resolve paths, dependencies, and permissions.
+3. **Immutability of Identity:** Primary keys (`id` as UUID) and semantic slugs (`code`) are permanent once assigned. Renaming an asset updates `name`, never `code`.
+
+---
+
+## 2. Core Anchor Nodes (Reference UUIDs)
+
+When attaching new entities, reference the following verified root and parent nodes:
+
+| Code | Name | Entity Type | UUID |
+| :--- | :--- | :--- | :--- |
+| `dmitry-lab` | Dmitry Lab | `brand` | `b8adb275-fb93-43b2-9f75-db2ca49c270c` |
+| `ledger-kb` | Ledger & Knowledge base | `core_system` | `3659f383-56d7-4f62-96e5-1d6256b72444` |
+| `soft-core` | Dmitry Lab Soft Core System | `core_system` | `c7b5fc86-5e37-4cb7-8ac2-b285bec75f2f` |
+| `hq-core` | HQ — Headquarters Core | `core_system` | `503950b7-23fd-48ea-9a16-4b85ab9de5cf` |
+| `digital-living-room` | Digital Living Room © 2026 | `direction` | `d5a37eec-2acb-4d17-8c38-97d848977b05` |
+| `web-studio` | Web studio | `direction` | `33a8cf7e-51ae-4109-9936-4989a0ef2366` |
+
+---
+
+## 3. Taxonomy & Field Standards
+
+### 3.1. `entity_type` (Strict Vocabulary)
+Every record MUST belong to one of four architectural tiers:
+* **`brand`**: Top-level umbrella ecosystems and intellectual property holders (`parent_id` is usually `NULL`).
+* **`direction`**: Strategic business units, studios, or sub-brands operating under a brand (e.g., `web-studio`, `digital-living-room`).
+* **`core_system`**: Foundational software, databases, orchestrators, or accounting engines that power the ecosystem (e.g., `soft-core`, `hq-core`, `ledger-kb`).
+* **`project`**: Concrete, bounded deliverables, modules, microservices, client websites, or open-source contributions (e.g., `api-manager`, `elenas-network`).
+
+### 3.2. `status` Lifecycle
+* **`concept`**: Idea, architectural draft, or planned district (e.g., future `core/city`).
+* **`active`**: Currently in development, production, or ongoing operation.
+* **`paused`**: Temporarily frozen; retains infrastructure and context.
+* **`completed`**: Delivered and closed (`completed_at` MUST NOT be `NULL`).
+* **`archived`**: Deprecated or superseded by another system.
+
+### 3.3. Naming & Slug Rules (`code`)
+* Format: `kebab-case` (lowercase alphanumeric with hyphens, regex: `^[a-z0-9-]+$`).
+* Maximum length: 50 characters.
+* No dates or statuses in `code` (e.g., use `uvr-017`, not `uvr-017-active-2026`).
+
+### 3.4. `metadata` (JSONB Schema Conventions)
+Use standardized keys inside the `metadata` JSONB object to ensure cross-agent compatibility:
+* `path`: Relative filesystem path from project root (e.g., `"core/hq"`).
+* `repo_url`: Git remote URL (if applicable).
+* `dependencies`: Array of project `code` strings required by this entity (e.g., `["api-manager", "postgresql"]`).
+* `internal_code`: External or legacy tracking code (e.g., `"UVR-017"`).
+* `former_name`: Previous code name prior to rebranding (e.g., `"agent_builder"`).
+
+---
+
+## 4. Standard Operating Procedure (SOP): Creating a New Entity
+
+Follow this 4-step protocol whenever registering a new project, system, or direction:
+
+1. **Hierarchy Classification:** Determine the exact `entity_type` and identify the immediate `parent_id` using the parent's `code`.
+2. **Collision Check:** Query `development.projects` to verify that the proposed `code` does not already exist.
+3. **DDL & Security Compliance (HQ Rule):** Agents must read the live table DDL before executing any write operation. Never hardcode UUIDs in scripts; resolve `parent_id` dynamically via subquery on `code`.
+4. **Idempotent Execution:** Always use `ON CONFLICT (code)` when inserting via SQL scripts to prevent duplicate errors during automated deployments.
+
+### Reference SQL Template
+
+```sql
+INSERT INTO development.projects (
+    parent_id,
+    code,
+    name,
+    entity_type,
+    status,
+    started_at,
+    completed_at,
+    description,
+    tags,
+    metadata
+)
+VALUES (
+    (SELECT id FROM development.projects WHERE code = '<PARENT_CODE>'),
+    '<kebab-case-code>',
+    '<Human Readable Name>',
+    '<brand|direction|core_system|project>',
+    '<concept|active|paused|completed|archived>',
+    'YYYY-MM-DD',
+    NULL, -- Set 'YYYY-MM-DD' only if status = 'completed'
+    '<Concise technical or business summary in English>',
+    ARRAY['<tag1>', '<tag2>'],
+    '{
+        "path": "<relative/fs/path>",
+        "dependencies": ["<dep-code-1>"]
+    }'::jsonb
+)
+ON CONFLICT (code) DO UPDATE SET
+    parent_id = EXCLUDED.parent_id,
+    name = EXCLUDED.name,
+    entity_type = EXCLUDED.entity_type,
+    status = EXCLUDED.status,
+    completed_at = EXCLUDED.completed_at,
+    description = EXCLUDED.description,
+    tags = EXCLUDED.tags,
+    metadata = development.projects.metadata || EXCLUDED.metadata,
+    updated_at = CURRENT_TIMESTAMP;
+```
+
+---
+
+## 5. Governance & Audit Rules
+
+* **CSO / Security Enforcement:** Any automated script or agent modifying `development.projects` must log its execution through `worker_tracker.py` and pass `py_compile` checks in `sandboxes/` prior to production execution.
+* **Completion Integrity:** Transitioning a project to `status = 'completed'` requires populating `completed_at` and updating `metadata` with final artifact paths or release tags.
