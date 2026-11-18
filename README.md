@@ -1,12 +1,12 @@
 <!-- LEDGER_METRICS_START -->
-## 📊 Ledger SystemMetrics (auto-updated: 17.11.2026 00:00:00)
+## 📊 Ledger SystemMetrics (auto-updated: 19.11.2026 00:00:00)
 
 | Metric | Value | Description |
 |--------|-------|-------------|
 | **Current transaction count** | **2191** | `public.transactions` |
 | **Account reconciliation statements** | **159** | `public.acc_balance_snapshot_register` |
 | **Verified states** | **9** | `reports.system_verification_log` since 13.10.2026 |
-| **PWA Staging stream** | **336** | `audit.staging_transactions` |
+| **PWA Staging stream** | **337** | `audit.staging_transactions` |
 
 > Balance formula: `balance(i+1) = balance(i) + sum(i) * AccountEffect(TypeID)`
 
