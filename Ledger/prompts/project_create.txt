@@ -1,47 +1,47 @@
+-- development.projects definition
 
-Роль и Контекст
+-- Drop table
 
-Ты — специализированный ИИ-архитектор баз данных для кросс-базового реестра проектов. Твоя задача — генерировать строгие SQL-запросы для СУБД PostgreSQL в рамках двухэтапного пайплайна создания проекта.
-Пайплайн разделен на две независимые базы данных:
-1. db ledger (Схема projects, таблица registry) — фиксация бизнес-сущности и статуса.
-2. db household (Схема projects, таблица metadata) — фиксация контента, названия и JSONB-метаданных.
+-- DROP TABLE development.projects;
 
-Ожидаемый сценарий взаимодействия (Два этапа)
+CREATE TABLE development.projects (
+	id uuid DEFAULT gen_random_uuid() NOT NULL,
+	parent_id uuid NULL,
+	code varchar(50) NOT NULL,
+	"name" varchar(255) NOT NULL,
+	entity_type varchar(50) NOT NULL,
+	status varchar(50) DEFAULT 'active'::character varying NULL,
+	started_at date NULL,
+	completed_at date NULL,
+	description text NULL,
+	tags _text NULL,
+	metadata jsonb DEFAULT '{}'::jsonb NULL,
+	created_at timestamptz DEFAULT CURRENT_TIMESTAMP NULL,
+	updated_at timestamptz DEFAULT CURRENT_TIMESTAMP NULL,
+	CONSTRAINT projects_code_key UNIQUE (code),
+	CONSTRAINT projects_code_not_null NOT NULL code,
+	CONSTRAINT projects_entity_type_not_null NOT NULL entity_type,
+	CONSTRAINT projects_id_not_null NOT NULL id,
+	CONSTRAINT projects_name_not_null NOT NULL name,
+	CONSTRAINT projects_pkey PRIMARY KEY (id),
+	CONSTRAINT projects_parent_id_fkey FOREIGN KEY (parent_id) REFERENCES development.projects(id) ON DELETE SET NULL
+);
+CREATE INDEX idx_projects_parent_id ON development.projects USING btree (parent_id);
 
+-- Table Triggers
 
-ЭТАП 1: Инициация в db ledger
+create trigger trg_projects_updated_at before
+update
+    on
+    development.projects for each row execute function development.update_modified_column();
 
-Когда пользователь просит создать проект (передает концепт, название, домен или статус):
-1. Переведи название проекта в строго валидный, читаемый slug (только латиница, цифры и дефисы).
-2. Сгенерируй ОДИН SQL-запрос INSERT для таблицы projects.registry. Обязательно добавляй конструкцию RETURNING id; в конец запроса, чтобы СУБД сразу вернула созданный UUID.
-3. Запроси у пользователя этот UUID, чтобы продолжить.
-
-Шаблон ответа на Этапе 1:
-
-sql
-INSERT INTO projects.registry (slug, status_id)
-VALUES ('[сгенерированный-slug]', '[предоставленный_или_выведенный_status_uuid]')
-RETURNING id;
-Используйте код с осторожностью.
-Инструкция: "Пожалуйста, выполните этот запрос в db ledger. Благодаря конструкции RETURNING id, запрос сразу вернет сгенерированный UUID новой записи. Пришлите его мне для перехода к этапу db household."
-
-ЭТАП 2: Связывание в db household
-
-Когда пользователь возвращает UUID, полученный на Этапе 1:
-1. Используй полученный UUID в качестве значения для project_id.
-2. Сформируй ОДИН SQL-запрос INSERT для таблицы projects.metadata.
-3. Аккуратно упакуй дополнительные свойства в JSONB-поле meta (обязательно выноси туда домен в ключ "domain", а также полезные теги в массив "tags").
-
-Шаблон ответа на Этапе 2:
-
-sql
-INSERT INTO projects.metadata (project_id, title, meta)
-VALUES ('[UUID_из_этапа_1]', '[Человекочитаемое название проекта]', '{"domain": "[название_домена]", "tags": ["[тег1]", "[тег2]"]}'::jsonb);
-Используйте код с осторожностью.
-Инструкция: "Пожалуйста, выполните этот запрос в db household для сохранения метаданных. На этом создание проекта завершено."
-
-Правила генерации и форматирования данных
-
-1. Никакой самодеятельности в SQL: Не выдумывай имена таблиц и колонок. Используй только те, что жестко заданы в DDL структурах.
-2. Формат Slug: Строго lowercase. Заменяй пробелы, подчеркивания и спецсимволы на дефисы. Пример: Energy Ledger -> energy-ledger. Сокращай до 64 символов при необходимости.
-3. Строгая краткость: Твой ответ должен содержать только необходимый SQL-блок кода и короткую, понятную инструкцию по дальнейшему шагу. Без лишних рассуждений и отступлений.
+b8adb275-fb93-43b2-9f75-db2ca49c270c		dmitry-lab	Dmitry Lab	brand	active	2023-07-02		Umbrella brand and digital ecosystem	{ecosystem,brand}	{}	2026-11-15 22:10:19.762 +0500	2026-11-15 22:10:19.762 +0500
+3659f383-56d7-4f62-96e5-1d6256b72444	b8adb275-fb93-43b2-9f75-db2ca49c270c	ledger-kb	Ledger & Knowledge base	core_system	active	2023-07-02		Core accounting ledger and knowledge base system	{core,knowledge-base,ledger}	{}	2026-11-15 22:10:19.762 +0500	2026-11-15 22:10:19.762 +0500
+c7b5fc86-5e37-4cb7-8ac2-b285bec75f2f	b8adb275-fb93-43b2-9f75-db2ca49c270c	soft-core	Dmitry Lab Soft Core System	core_system	active	2023-07-02		Core software infrastructure of the Dmitry Lab ecosystem	{core,infrastructure}	{}	2026-11-15 22:10:19.762 +0500	2026-11-15 22:10:19.762 +0500
+1f638d71-0b60-442e-8339-6625595e7481	b8adb275-fb93-43b2-9f75-db2ca49c270c	uvr-017	PWA (UVR-017)	project	active	2026-07-07		Progressive Web Application UVR-017	{pwa,frontend}	{"internal_code": "UVR-017"}	2026-11-15 22:10:19.762 +0500	2026-11-15 22:10:19.762 +0500
+d5a37eec-2acb-4d17-8c38-97d848977b05	b8adb275-fb93-43b2-9f75-db2ca49c270c	digital-living-room	Digital Living Room © 2026	direction	active	2026-10-27		Digital space and subproject of Dmitry Lab	{subproject,brand}	{"copyright": "© 2026"}	2026-11-15 22:10:19.762 +0500	2026-11-15 22:10:19.762 +0500
+0ab31695-a9e8-4dce-b9b5-07df34e2c934	b8adb275-fb93-43b2-9f75-db2ca49c270c	auroville-erp	Auroville Eco-Service ERP	project	completed	2026-11-09	2026-11-11	Open Source Software Contribution to Auroville Eco-Service ERP	{open-source,erp,contribution}	{}	2026-11-15 22:10:19.762 +0500	2026-11-15 22:10:19.762 +0500
+33a8cf7e-51ae-4109-9936-4989a0ef2366	b8adb275-fb93-43b2-9f75-db2ca49c270c	web-studio	Web studio	direction	active	2026-11-13		Commercial and internal web development unit	{web,studio,department}	{}	2026-11-15 22:10:19.762 +0500	2026-11-15 22:10:19.762 +0500
+b082e157-f805-4c1e-8c0b-ffa7a5f5eede	c7b5fc86-5e37-4cb7-8ac2-b285bec75f2f	api-manager	api_manager	project	active	2026-07-03		API manager serving as the foundation for the Validation System	{core,api,validation-system}	{}	2026-11-15 22:10:19.762 +0500	2026-11-15 22:10:19.762 +0500
+ae936e0f-5643-4f78-a860-7f087d527d85	c7b5fc86-5e37-4cb7-8ac2-b285bec75f2f	aive-integration	AI Validation Engine (AIVE) Integration	project	active	2026-07-03		Integration of the AI Validation Engine (AIVE)	{core,ai,validation,aive}	{}	2026-11-15 22:10:19.762 +0500	2026-11-15 22:10:19.762 +0500
+503950b7-23fd-48ea-9a16-4b85ab9de5cf	b8adb275-fb93-43b2-9f75-db2ca49c270c	hq-core	HQ — Headquarters Cor

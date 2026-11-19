@@ -24,3 +24,16 @@ VALID_EXTENSIONS = ('.png', '.jpg', '.jpeg', '.webp')
 # --- НАСТРОЙКИ ПУТЕЙ ---
 INPUT_DIR = os.path.join(BASE_DIR, "input_photos")
 OUTPUT_DIR = os.path.join(BASE_DIR, "output_processed")
+
+# === 3 YEARS REPORT - IG 4:5 ===
+class R3Config:
+    INPUT_DIR = "./input/3_years_report"
+    OUTPUT_DIR = "./output/3_years_report"
+    BACKGROUND_COLOR = (128, 128, 128) # серый как на твоих фото
+    PADDING_PERCENT = 0.15
+    JPEG_QUALITY = 95
+    VALID_EXTENSIONS = (".jpg", ".jpeg", ".png", ".webp")
+    TARGET_W = 1080
+    TARGET_H = 1350 # 4:5
+    FIT_RATIO = 0.80
+    BG_THRESHOLD = 25

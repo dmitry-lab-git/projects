@@ -12,6 +12,7 @@ from .ui.pages.projects import projects_page
 from .ui.pages.project_editor import project_editor_page
 # Импорт страницы тайм-трекера для ее автоматической регистрации через декоратор @rx.page
 from .ui.pages.time_tracker import time_tracker_page
+from src.services.cron.jobs.traffic_limit import check_traffic_limit
 
 from apscheduler.schedulers.background import BackgroundScheduler
 import atexit
@@ -40,6 +41,15 @@ _scheduler.add_job(
     'interval', 
     seconds=21600, 
     id="pwa_dashboard_metrics_interval", 
+    replace_existing=True
+)
+
+# 3. Проверка трафика ПК каждые 15 минут - 50% / 70% / 100%
+_scheduler.add_job(
+    check_traffic_limit,
+    'interval',
+    minutes=15,
+    id="traffic_limit_check",
     replace_existing=True
 )
 

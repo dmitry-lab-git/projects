@@ -19,6 +19,7 @@ echo "$TIME_ARCHIVE * * * /bin/bash $SCRIPT_DIR/archive_untouchable.sh"
 echo "$TIME_CLEAN * * * /bin/bash $SCRIPT_DIR/clean_and_rotate.sh"
 echo "$TIME_INSPECTOR /bin/bash $SCRIPT_DIR/pwa_workers_inspector.sh"
 echo "$TIME_DOC_INGRESS /bin/bash $SCRIPT_DIR/run_doc_ingress.sh"
+echo "$TIME_TRAFFIC /bin/bash $SCRIPT_DIR/check_traffic.sh"
 ) | crontab -
 
 echo "Расписание CRON успешно обновлено для всех 7 постоянных процессов из $SCRIPT_DIR"
