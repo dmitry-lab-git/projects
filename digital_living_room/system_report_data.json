@@ -3,7 +3,7 @@
         "transactions": "2191",
         "balance_snapshots": "159",
         "verified_states": "9",
-        "pwa_staging_flow": "337"
+        "pwa_staging_flow": "339"
     },
     "textile": {
         "projects_implemented": "52",
@@ -133,5 +133,5 @@
         "uvr": "UVR-048",
         "date": "2026-11-18"
     },
-    "updated_at": "19.11.2026 12:38:08"
+    "updated_at": "19.11.2026 18:38:18"
 }
