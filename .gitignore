@@ -56,3 +56,8 @@ create_issues*.sh
 .readme_metrics_last_run
 .states/
 web_studio/
+
+# Build artifacts & nested standalone repos
+core/core.egg-info/
+home-node-linux/
+core/core.egg-info/
