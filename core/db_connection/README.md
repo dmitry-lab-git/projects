@@ -6,16 +6,16 @@ Design principle: no module opens a database connection directly.
 All database access goes through this package. A connection pool is
 created once per project and reused for the lifetime of the process.
 
-## Structure
+## Project Structure
 
-core/db_connection/
-  README.md         # This document
-  __init__.py       # Public API: get_conn, get_cursor, get_pool
-  config.py         # Environment configuration (DB + legacy .env)
-  connection.py     # Connection pool management, one pool per project
-  vault_loader.py   # Decrypts and loads secrets from platform_meta
-  vault_crypto.py   # AES-GCM encryption/decryption
-  vault_cli.py      # CLI for managing secrets and projects
+- `README.md` — package documentation, architecture, and usage notes.
+- `__init__.py` — public package exports (`get_conn`, `get_cursor`, `get_pool`).
+- `config.py` — resolves connection settings (`DBConfig`) from Vault and legacy `.env` files, enforcing a non-empty `PGPASSWORD` (`ValueError` if missing).
+- `connection.py` — manages `psycopg_pool.ConnectionPool` instances (one pool per project/profile) and context managers `get_conn` / `get_cursor`.
+- `provision.sh` — interactive script for provisioning PostgreSQL roles/databases and writing encrypted secrets into Vault.
+- `vault_loader.py` — reads and decrypts project secrets from the `platform_meta` database (`vault` schema).
+- `vault_crypto.py` — AES-GCM encryption and decryption helpers using the Vault master key.
+- `vault_cli.py` — CLI utility for managing Vault projects and secret keys.
 
 ## Credentials Architecture
 
@@ -45,9 +45,13 @@ HOUSEHOLD_PGPASSWORD=***
 
 Resolution order for each setting:
 1. Vault DB (if project exists there)
-2. Project-prefixed variable from `.env`, e.g. `HOUSEHOLD_PGHOST`
-3. Unprefixed variable from `.env`, e.g. `PGHOST`
-4. Built-in default, e.g. `localhost`, `5432`
+2. Project-prefixed variable from `.env` or environment, e.g. `HOUSEHOLD_PGHOST`
+3. Unprefixed variable from `.env` or environment, e.g. `PGHOST`
+4. Built-in default (for non-secret fields like `localhost`, `5432`, or `dbname = project`)
+
+Note on `PGPASSWORD`: there is no silent empty-password default. If `PGPASSWORD`
+is missing in Vault and environment variables, `get_config(project)` raises
+`ValueError` so a connection pool is not opened without credentials.
 
 ## Usage
 
@@ -66,22 +70,16 @@ Semantics:
 - `get_cursor(project)` yields a cursor, commits on successful exit,
   rolls back on exception, and returns the connection to the pool.
 - `get_conn(project)` yields a connection without automatic commit.
+- If a logical/API project name differs from the Vault profile name, resolve
+  the Vault profile explicitly in the caller before calling `get_cursor` /
+  `ping_project`.
 
 ## Integration with External Projects
 
 If your project is located outside `~/Projects/core`, you need to install the `core` package into your project's virtual environment.
 
-1. Ensure `~/Projects/core/pyproject.toml` exists (see above).
+1. Ensure `~/Projects/core/pyproject.toml` exists.
 2. Activate your project's venv:
    ```bash
-   source ~/Projects/<your_project>/venv/bin/activate
-
-
-## Adding a New Project (Регламент)
-
-Начиная с версии 2.0, секреты новых проектов хранятся в зашифрованном виде в служебной БД `platform_meta`. Файлы `.env` для новых проектов **не создаются**.
-
-### Шаг 1. Создать проект в реестре
-
-```bash
-python -m core.db_connection.vault_cli create-project --project <имя_проекта>
+   source ~/Projects/<your_project>/.venv/bin/activate
+   pip install -e ~/Projects/core
