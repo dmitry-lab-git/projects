@@ -125,6 +125,78 @@
                 "utilized_at": "2026-11-16 00:00:00",
                 "disposal_point_name": "Plastic container",
                 "disposal_point_type": "Plastic collection"
+            },
+            {
+                "interval_start": "2026-11-01",
+                "resource_name": "Other waste (kitchen)",
+                "resource_type": "Non-recyclable",
+                "unit": "kg",
+                "device_name": "DEXP BM-10",
+                "uncertainty": 0.05,
+                "quantity": 0.2,
+                "utilized_at": "2026-11-21 00:00:00",
+                "disposal_point_name": "Municipal waste container (MSW)",
+                "disposal_point_type": "MSW landfill"
+            },
+            {
+                "interval_start": "2026-11-01",
+                "resource_name": "Food waste, solid",
+                "resource_type": "Organic",
+                "unit": "kg",
+                "device_name": "DEXP BM-10",
+                "uncertainty": 0.05,
+                "quantity": 1.5,
+                "utilized_at": "2026-11-21 00:00:00",
+                "disposal_point_name": "Municipal waste container (MSW)",
+                "disposal_point_type": "MSW landfill"
+            },
+            {
+                "interval_start": "2026-11-01",
+                "resource_name": "Plastic",
+                "resource_type": "Recyclable",
+                "unit": "kg",
+                "device_name": "DEXP BM-10",
+                "uncertainty": 0.05,
+                "quantity": 0.2,
+                "utilized_at": "2026-11-21 00:00:00",
+                "disposal_point_name": "Plastic container",
+                "disposal_point_type": "Plastic collection"
+            },
+            {
+                "interval_start": "2026-11-01",
+                "resource_name": "Paper",
+                "resource_type": "Recyclable",
+                "unit": "kg",
+                "device_name": "DEXP BM-10",
+                "uncertainty": 0.05,
+                "quantity": 0.6,
+                "utilized_at": "2026-11-21 00:00:00",
+                "disposal_point_name": "Drop-off at Batyr mall",
+                "disposal_point_type": "Paper collection"
+            },
+            {
+                "interval_start": "2026-11-01",
+                "resource_name": "Metal",
+                "resource_type": "Recyclable",
+                "unit": "kg",
+                "device_name": "DEXP BM-10",
+                "uncertainty": 0.05,
+                "quantity": 0.3,
+                "utilized_at": "2026-11-21 00:00:00",
+                "disposal_point_name": "Municipal waste container (MSW)",
+                "disposal_point_type": "MSW landfill"
+            },
+            {
+                "interval_start": "2026-11-01",
+                "resource_name": "Glass",
+                "resource_type": "Recyclable",
+                "unit": "kg",
+                "device_name": "DEXP BM-10",
+                "uncertainty": 0.05,
+                "quantity": 0.3,
+                "utilized_at": "2026-11-21 00:00:00",
+                "disposal_point_name": "Drop-off at Batyr mall",
+                "disposal_point_type": "Glass collection"
             }
         ]
     },
@@ -133,5 +205,5 @@
         "uvr": "UVR-052",
         "date": "2026-11-20"
     },
-    "updated_at": "21.11.2026 18:01:39"
+    "updated_at": "21.11.2026 22:40:13"
 }
