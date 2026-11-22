@@ -1,5 +1,6 @@
 ﻿#C:\Users\admin\Desktop\Ledger\aive\api_manager\exceptions.py
 from google.api_core import exceptions as google_exceptions
+from google.genai import errors as genai_errors
 import logging
 
 class SecureAPIError(Exception):
@@ -68,6 +69,28 @@ class ExceptionHandler:
         """
         error_msg = str(e)
         error_msg_lower = error_msg.lower()
+
+        if isinstance(e, genai_errors.APIError):
+            code = getattr(e, "code", None)
+            if code in (500, 502, 503, 504) or "503" in error_msg or "unavailable" in error_msg_lower:
+                return ProviderError(
+                    message=f"Временный сбой на стороне модели ({code or '503'}): {error_msg}",
+                    model_name=model_name,
+                    is_retryable=True,
+                    status_key="ERROR_RETRY",
+                )
+            if code == 429 or "resource_exhausted" in error_msg_lower:
+                is_daily = any(m in error_msg_lower for m in ("daily", "rpd", "limit exceeded for day"))
+                if is_daily:
+                    return QuotaExhaustedError(
+                        message=f"Суточный лимит RPD исчерпан: {error_msg}",
+                        model_name=model_name,
+                    )
+                return RateLimitError(
+                    message=f"Превышен лимит запросов (429): {error_msg}",
+                    model_name=model_name,
+                    suggested_delay=5.0,
+                )
 
         # =====================================================================
         # 1. ДОМЕН КВОТ И МЯГКИХ ЛИМИТОВ (HTTP 429 / gRPC RESOURCE_EXHAUSTED)

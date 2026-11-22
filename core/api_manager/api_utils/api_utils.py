@@ -116,6 +116,8 @@ def execute_with_retry(client, model_name, prompt_text, conn, request_id):
     Выполняет запрос к Gemini API с автоматическим повтором при ошибках,
     а также гарантирует запись результатов в БД.
     """
+    if hasattr(config, "PACING_DELAY") and config.PACING_DELAY > 0:
+        countdown_timer(config.PACING_DELAY)
     for attempt in range(1, config.DEFAULT_MAX_RETRIES + 1):
         try:
             # 1. Сетевой запрос к API
@@ -141,10 +143,6 @@ def execute_with_retry(client, model_name, prompt_text, conn, request_id):
                     f"ID: {request_id}. Ошибка: {db_err}"
                 )
                 raise SystemExit("Остановка системы из-за сбоя записи финального статуса в БД.") from db_err
-
-            # Пейсинг-пауза после успешного выполнения (если предусмотрена процессом)
-            if hasattr(config, 'PACING_DELAY'):
-                countdown_timer(config.PACING_DELAY)
                 
             # Возвращаем результат, выходя из функции и цикла
             return current_res_text
