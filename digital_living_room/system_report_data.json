@@ -3,7 +3,7 @@
         "transactions": "2201",
         "balance_snapshots": "160",
         "verified_states": "10",
-        "pwa_staging_flow": "343"
+        "pwa_staging_flow": "344"
     },
     "textile": {
         "projects_implemented": "52",
@@ -197,6 +197,30 @@
                 "utilized_at": "2026-11-21 00:00:00",
                 "disposal_point_name": "Drop-off at Batyr mall",
                 "disposal_point_type": "Glass collection"
+            },
+            {
+                "interval_start": "2026-11-01",
+                "resource_name": "Other waste (kitchen)",
+                "resource_type": "Non-recyclable",
+                "unit": "kg",
+                "device_name": "DEXP BM-10",
+                "uncertainty": 0.05,
+                "quantity": 0.2,
+                "utilized_at": "2026-11-26 00:00:00",
+                "disposal_point_name": "Municipal waste container (MSW)",
+                "disposal_point_type": "MSW landfill"
+            },
+            {
+                "interval_start": "2026-11-01",
+                "resource_name": "Food waste, solid",
+                "resource_type": "Organic",
+                "unit": "kg",
+                "device_name": "DEXP BM-10",
+                "uncertainty": 0.05,
+                "quantity": 1.3,
+                "utilized_at": "2026-11-26 00:00:00",
+                "disposal_point_name": "Municipal waste container (MSW)",
+                "disposal_point_type": "MSW landfill"
             }
         ]
     },
@@ -205,5 +229,5 @@
         "uvr": "UVR-056",
         "date": "2026-11-23"
     },
-    "updated_at": "26.11.2026 13:06:37"
+    "updated_at": "26.11.2026 22:40:07"
 }
